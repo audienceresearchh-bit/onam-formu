@@ -559,13 +559,17 @@
         </div>
     </div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script>
+        var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw6pAW1UIELnD3Q4StPwulBhXFSpixK6_E_RgujeD5ahaf-vXk4p_Rg1sfwt2LhX2mp/exec';
+
         // Tarih otomatik ayarla
         document.getElementById('consentDate').value = new Date().toISOString().split('T')[0];
 
-        // Onay kutuları - event kontrolü ile çift toggle engelleniyor
+        // Onay kutuları
         function toggleConsent(item, event) {
-            const checkbox = item.querySelector('input[type="checkbox"]');
+            var checkbox = item.querySelector('input[type="checkbox"]');
             if (event && (event.target === checkbox || event.target.tagName === 'INPUT')) {
                 item.classList.toggle('checked', checkbox.checked);
                 validateForm();
@@ -576,108 +580,132 @@
             validateForm();
         }
 
-        // Form doğrulama
+        // Form dogrulama
         function validateForm() {
-            const name = document.getElementById('participantName').value.trim();
-            const consent1 = document.getElementById('consent1').checked;
-            const consent2 = document.getElementById('consent2').checked;
-            const consent3 = document.getElementById('consent3').checked;
-            const consent4 = document.getElementById('consent4').checked;
-
-            const isValid = name && consent1 && consent2 && consent3 && consent4;
-            document.getElementById('confirmBtn').disabled = !isValid;
+            var name = document.getElementById('participantName').value.trim();
+            var c1 = document.getElementById('consent1').checked;
+            var c2 = document.getElementById('consent2').checked;
+            var c3 = document.getElementById('consent3').checked;
+            var c4 = document.getElementById('consent4').checked;
+            document.getElementById('confirmBtn').disabled = !(name && c1 && c2 && c3 && c4);
         }
 
-        // Input değişikliklerini dinle
         document.getElementById('participantName').addEventListener('input', validateForm);
-        document.querySelectorAll('.consent-item input').forEach(cb => {
+        document.querySelectorAll('.consent-item input').forEach(function(cb) {
             cb.addEventListener('change', function() {
                 this.closest('.consent-item').classList.toggle('checked', this.checked);
                 validateForm();
             });
         });
 
-        // Onay gönder
+        // Onay gonder
         function submitConsent() {
-            const name = document.getElementById('participantName').value.trim();
-            const date = document.getElementById('consentDate').value;
-            const now = new Date();
-            const time = now.toLocaleTimeString('tr-TR');
-            const code = 'ONY-' + Date.now().toString(36).toUpperCase();
+            var name = document.getElementById('participantName').value.trim();
+            var date = document.getElementById('consentDate').value;
+            var now = new Date();
+            var time = now.toLocaleTimeString('tr-TR');
+            var code = 'ONY-' + Date.now().toString(36).toUpperCase();
 
-            // Bilgileri göster
             document.getElementById('confirmName').textContent = name;
             document.getElementById('confirmDate').textContent = new Date(date).toLocaleDateString('tr-TR');
             document.getElementById('confirmTime').textContent = time;
             document.getElementById('confirmCode').textContent = code;
 
-            // Butonu devre dışı bırak (çift gönderim engeli)
+            // Butonu devre disi birak
             document.getElementById('confirmBtn').disabled = true;
-            document.getElementById('confirmBtn').innerHTML = '⏳ Gönderiliyor...';
+            document.getElementById('confirmBtn').innerHTML = '⏳ PDF Oluşturuluyor...';
 
-            // Popup göster (gönderiliyor durumunda)
+            // Popup goster
             document.getElementById('overlayIcon').textContent = '⏳';
-            document.getElementById('overlayTitle').textContent = 'Gönderiliyor...';
-            document.getElementById('overlayMessage').textContent = 'Onay formunuz araştırma ekibine iletiliyor, lütfen bekleyin.';
+            document.getElementById('overlayTitle').textContent = 'PDF Oluşturuluyor...';
+            document.getElementById('overlayMessage').textContent = 'Formunuz PDF olarak hazırlanıp e-posta ile gönderiliyor, lütfen bekleyin.';
             document.getElementById('emailStatus').style.display = 'none';
             document.getElementById('confirmationOverlay').classList.add('show');
 
-            // E-posta gönder
-            const emailData = {
-                'Ad Soyad': name,
-                'Telefon': document.getElementById('participantPhone').value || 'Belirtilmedi',
-                'E-posta': document.getElementById('participantEmail').value || 'Belirtilmedi',
-                'Tarih': new Date(date).toLocaleDateString('tr-TR'),
-                'Saat': time,
-                'Onay Kodu': code,
-                'Bilgilendirme Onayi': document.getElementById('consent1').checked ? 'EVET' : 'HAYIR',
-                'Ses ve Video Kaydi Onayi': document.getElementById('consent2').checked ? 'EVET' : 'HAYIR',
-                'Veri Isleme Onayi': document.getElementById('consent3').checked ? 'EVET' : 'HAYIR',
-                'Gonullu Katilim Onayi': document.getElementById('consent4').checked ? 'EVET' : 'HAYIR',
-                'Sonuc Bilgilendirme Istegi': document.getElementById('consent5').checked ? 'EVET' : 'HAYIR',
-                '_subject': 'Yeni Onam Formu Onayi: ' + name,
-                '_template': 'table',
-                '_captcha': 'false'
+            var formData = {
+                name: name,
+                phone: document.getElementById('participantPhone').value,
+                email: document.getElementById('participantEmail').value,
+                date: new Date(date).toLocaleDateString('tr-TR'),
+                time: time,
+                code: code,
+                consents: {
+                    bilgilendirme: document.getElementById('consent1').checked ? 'EVET' : 'HAYIR',
+                    sesVideo: document.getElementById('consent2').checked ? 'EVET' : 'HAYIR',
+                    veriIsleme: document.getElementById('consent3').checked ? 'EVET' : 'HAYIR',
+                    gonullu: document.getElementById('consent4').checked ? 'EVET' : 'HAYIR',
+                    sonucBilgi: document.getElementById('consent5').checked ? 'EVET' : 'HAYIR'
+                }
             };
 
-            fetch('https://formsubmit.co/ajax/audienceresearchh@gmail.com', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify(emailData)
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    // Başarılı
+            // PDF olustur ve gonder
+            var container = document.querySelector('.container');
+            html2canvas(container, {
+                scale: 2,
+                useCORS: true,
+                backgroundColor: '#ffffff',
+                logging: false,
+                windowWidth: 700
+            }).then(function(canvas) {
+                var jsPDF = window.jspdf.jsPDF;
+                var pdf = new jsPDF('p', 'mm', 'a4');
+                var pageW = pdf.internal.pageSize.getWidth();
+                var pageH = pdf.internal.pageSize.getHeight();
+                var margin = 10;
+                var imgW = pageW - margin * 2;
+                var imgH = (canvas.height * imgW) / canvas.width;
+
+                if (imgH <= pageH - margin * 2) {
+                    pdf.addImage(canvas.toDataURL('image/jpeg', 0.9), 'JPEG', margin, margin, imgW, imgH);
+                } else {
+                    var pos = 0;
+                    var page = 0;
+                    while (pos < imgH) {
+                        if (page > 0) pdf.addPage();
+                        var usable = pageH - margin * 2;
+                        var srcY = (pos / imgH) * canvas.height;
+                        var srcH = Math.min((usable / imgH) * canvas.height, canvas.height - srcY);
+                        var tmpC = document.createElement('canvas');
+                        tmpC.width = canvas.width;
+                        tmpC.height = srcH;
+                        tmpC.getContext('2d').drawImage(canvas, 0, srcY, canvas.width, srcH, 0, 0, canvas.width, srcH);
+                        var drawH = (srcH * imgW) / canvas.width;
+                        pdf.addImage(tmpC.toDataURL('image/jpeg', 0.9), 'JPEG', margin, margin, imgW, drawH);
+                        pos += usable;
+                        page++;
+                    }
+                }
+
+                // PDF'i base64'e cevir
+                var pdfBase64 = pdf.output('datauristring').split(',')[1];
+
+                document.getElementById('overlayTitle').textContent = 'E-posta Gönderiliyor...';
+                document.getElementById('overlayMessage').textContent = 'PDF oluşturuldu, e-posta ile gönderiliyor...';
+
+                formData.pdfBase64 = pdfBase64;
+
+                // Google Apps Script'e gonder
+                fetch(APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: JSON.stringify(formData)
+                }).then(function() {
                     document.getElementById('overlayIcon').textContent = '✅';
                     document.getElementById('overlayTitle').textContent = 'Onay Alındı!';
-                    document.getElementById('overlayMessage').textContent = 'Aydınlatılmış onam formunuz başarıyla araştırma ekibine iletildi. Katılımınız için teşekkür ederiz.';
-                    const statusEl = document.getElementById('emailStatus');
+                    document.getElementById('overlayMessage').textContent = 'Onam formunuz PDF olarak araştırma ekibine e-posta ile gönderildi. Katılımınız için teşekkür ederiz.';
+                    var statusEl = document.getElementById('emailStatus');
                     statusEl.style.display = 'block';
                     statusEl.style.background = '#e8f8f0';
                     statusEl.style.color = '#27ae60';
-                    statusEl.innerHTML = '✅ E-posta başarıyla gönderildi!';
-                } else {
+                    statusEl.innerHTML = '✅ PDF oluşturuldu ve e-posta ile gönderildi!';
+                }).catch(function(err) {
+                    console.error('Gonderim hatasi:', err);
                     showEmailError();
-                }
+                });
 
-                // LocalStorage'a kaydet
-                const consentData = {
-                    name, date, time, code,
-                    phone: document.getElementById('participantPhone').value,
-                    email: document.getElementById('participantEmail').value,
-                    emailSent: data.success || false,
-                    timestamp: now.toISOString()
-                };
-                const consents = JSON.parse(localStorage.getItem('onamFormlari') || '[]');
-                consents.push(consentData);
-                localStorage.setItem('onamFormlari', JSON.stringify(consents));
-            })
-            .catch(error => {
-                console.error('E-posta gönderim hatası:', error);
+            }).catch(function(err) {
+                console.error('PDF hatasi:', err);
                 showEmailError();
             });
         }
@@ -686,7 +714,7 @@
             document.getElementById('overlayIcon').textContent = '⚠️';
             document.getElementById('overlayTitle').textContent = 'Onay Kaydedildi';
             document.getElementById('overlayMessage').textContent = 'Onayınız kaydedildi ancak e-posta gönderilemedi. Lütfen ekran görüntüsü alarak araştırma ekibine iletin.';
-            const statusEl = document.getElementById('emailStatus');
+            var statusEl = document.getElementById('emailStatus');
             statusEl.style.display = 'block';
             statusEl.style.background = '#fef9e7';
             statusEl.style.color = '#e67e22';
@@ -695,7 +723,6 @@
 
         function closeConfirmation() {
             document.getElementById('confirmationOverlay').classList.remove('show');
-            // Butonu tekrar aktif et
             document.getElementById('confirmBtn').innerHTML = '✅ Onaylıyorum ve Gönder';
             validateForm();
         }
