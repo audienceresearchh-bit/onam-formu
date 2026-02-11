@@ -517,7 +517,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script>
-        var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw6pAW1UIELnD3Q4StPwulBhXFSpixK6_E_RgujeD5ahaf-vXk4p_Rg1sfwt2LhX2mp/exec';
+        var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyQ9U0BLadvrmmreYRa6sq4qc_vtlRpCamKiviQ9EbTzaBUBeJtQ5JuJFeiS96-0c4-5w/exec';
 
         // Tarih otomatik ayarla
         document.getElementById('consentDate').value = new Date().toISOString().split('T')[0];
@@ -570,7 +570,7 @@
             // Popup goster
             document.getElementById('overlayIcon').textContent = '⏳';
             document.getElementById('overlayTitle').textContent = 'PDF Oluşturuluyor...';
-            document.getElementById('overlayMessage').textContent = 'Formunuz PDF olarak hazırlanıp e-posta ile gönderiliyor, lütfen bekleyin.';
+            document.getElementById('overlayMessage').textContent = 'Formunuz PDF olarak hazırlanıp Drive\'a yükleniyor, lütfen bekleyin.';
             document.getElementById('emailStatus').style.display = 'none';
             document.getElementById('confirmationOverlay').classList.add('show');
 
@@ -627,26 +627,34 @@
                 // PDF'i base64'e cevir
                 var pdfBase64 = pdf.output('datauristring').split(',')[1];
 
-                document.getElementById('overlayTitle').textContent = 'E-posta Gönderiliyor...';
-                document.getElementById('overlayMessage').textContent = 'PDF oluşturuldu, e-posta ile gönderiliyor...';
+                document.getElementById('overlayTitle').textContent = 'Drive\'a Yükleniyor...';
+                document.getElementById('overlayMessage').textContent = 'PDF oluşturuldu, Drive\'a yükleniyor...';
 
-                formData.pdfBase64 = pdfBase64;
+                var dateStr = new Date().toISOString().slice(0, 10);
+                var fileName = 'Onam_' + name.replace(/\s+/g, '_') + '_' + dateStr + '.pdf';
 
-                // Google Apps Script'e gonder
+                // Google Drive'a yükle
                 fetch(APPS_SCRIPT_URL, {
                     method: 'POST',
                     mode: 'no-cors',
                     headers: { 'Content-Type': 'text/plain' },
-                    body: JSON.stringify(formData)
+                    body: JSON.stringify({
+                        folderName: 'Onam_Formlari',
+                        files: [{
+                            fileName: fileName,
+                            mimeType: 'application/pdf',
+                            data: pdfBase64
+                        }]
+                    })
                 }).then(function() {
                     document.getElementById('overlayIcon').textContent = '✅';
                     document.getElementById('overlayTitle').textContent = 'Onay Alındı!';
-                    document.getElementById('overlayMessage').textContent = 'Onam formunuz PDF olarak araştırma ekibine e-posta ile gönderildi. Katılımınız için teşekkür ederiz.';
+                    document.getElementById('overlayMessage').textContent = 'Onam formunuz PDF olarak Google Drive\'a yüklendi. Katılımınız için teşekkür ederiz.';
                     var statusEl = document.getElementById('emailStatus');
                     statusEl.style.display = 'block';
                     statusEl.style.background = '#e8f8f0';
                     statusEl.style.color = '#27ae60';
-                    statusEl.innerHTML = '✅ PDF oluşturuldu ve e-posta ile gönderildi!';
+                    statusEl.innerHTML = '✅ PDF oluşturuldu ve Drive\'a yüklendi!';
                 }).catch(function(err) {
                     console.error('Gonderim hatasi:', err);
                     showEmailError();
@@ -661,12 +669,12 @@
         function showEmailError() {
             document.getElementById('overlayIcon').textContent = '⚠️';
             document.getElementById('overlayTitle').textContent = 'Onay Kaydedildi';
-            document.getElementById('overlayMessage').textContent = 'Onayınız kaydedildi ancak e-posta gönderilemedi. Lütfen ekran görüntüsü alarak araştırma ekibine iletin.';
+            document.getElementById('overlayMessage').textContent = 'Onayınız kaydedildi ancak Drive\'a yüklenemedi. Lütfen ekran görüntüsü alarak araştırma ekibine iletin.';
             var statusEl = document.getElementById('emailStatus');
             statusEl.style.display = 'block';
             statusEl.style.background = '#fef9e7';
             statusEl.style.color = '#e67e22';
-            statusEl.innerHTML = '⚠️ E-posta gönderilemedi. Ekran görüntüsü alarak iletebilirsiniz.';
+            statusEl.innerHTML = '⚠️ Drive\'a yüklenemedi. Ekran görüntüsü alarak iletebilirsiniz.';
         }
 
         function closeConfirmation() {

@@ -1709,6 +1709,7 @@
                     <h4>✅ Görüşme Sonu Kontrol Listesi</h4>
                     <label><input type="checkbox"> Kayıt durduruldu</label>
                     <label><input type="checkbox"> Tümü indirildi (WAV, TXT, JSON)</label>
+                    <div id="driveUploadStatus" style="margin-top: 8px; font-size: 12px; color: #7f8c8d;"></div>
                 </div>
 
                 <div class="action-buttons" style="margin-top: 18px;">
@@ -1734,6 +1735,7 @@
         let recordings = [];
         let timestamps = {};
         let backupInterval = null;
+        let lastPdfBlob = null; // Drive yükleme için PDF blob
         let dbReady = false;
         let db = null;
 
@@ -2058,23 +2060,38 @@
                         alert('Kayıt hatası: ' + event.error.message);
                     };
 
-                    // Raw PCM yakalama başlat (WAV dönüşümü için)
+                    // Raw PCM yakalama başlat (WAV dönüşümü için - AudioWorklet)
                     try {
                         pcmChunks = [];
                         pcmAudioContext = new (window.AudioContext || window.webkitAudioContext)();
                         pcmSampleRate = pcmAudioContext.sampleRate;
                         const pcmSource = pcmAudioContext.createMediaStreamSource(micStream);
-                        pcmCaptureNode = pcmAudioContext.createScriptProcessor(4096, 1, 1);
-                        pcmCaptureNode.onaudioprocess = function(e) {
-                            pcmChunks.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+
+                        // AudioWorklet ile PCM yakalama
+                        const workletCode = `
+                            class PCMCaptureProcessor extends AudioWorkletProcessor {
+                                process(inputs) {
+                                    const input = inputs[0];
+                                    if (input && input[0] && input[0].length > 0) {
+                                        this.port.postMessage(new Float32Array(input[0]));
+                                    }
+                                    return true;
+                                }
+                            }
+                            registerProcessor('pcm-capture-processor', PCMCaptureProcessor);
+                        `;
+                        const workletBlob = new Blob([workletCode], { type: 'application/javascript' });
+                        const workletUrl = URL.createObjectURL(workletBlob);
+                        await pcmAudioContext.audioWorklet.addModule(workletUrl);
+                        URL.revokeObjectURL(workletUrl);
+
+                        pcmCaptureNode = new AudioWorkletNode(pcmAudioContext, 'pcm-capture-processor');
+                        pcmCaptureNode.port.onmessage = function(e) {
+                            pcmChunks.push(e.data);
                         };
                         pcmSource.connect(pcmCaptureNode);
-                        // Sıfır ses ile destination'a bağla (ScriptProcessor çalışması için gerekli, hoparlöre ses gitmez)
-                        const zeroGain = pcmAudioContext.createGain();
-                        zeroGain.gain.value = 0;
-                        pcmCaptureNode.connect(zeroGain);
-                        zeroGain.connect(pcmAudioContext.destination);
-                        console.log('PCM yakalama başladı, sampleRate:', pcmSampleRate);
+                        pcmCaptureNode.connect(pcmAudioContext.destination); // AudioWorklet ses çıkışı üretmez, bağlantı sadece aktif tutmak için
+                        console.log('PCM yakalama başladı (AudioWorklet), sampleRate:', pcmSampleRate);
                     } catch (pcmErr) {
                         console.warn('PCM yakalama başlatılamadı, fallback kullanılacak:', pcmErr);
                     }
@@ -2213,6 +2230,7 @@
                     }
                 }
 
+                lastPdfBlob = pdf.output('blob');
                 pdf.save(fileName);
                 console.log('PDF otomatik indirildi:', fileName);
 
@@ -2293,6 +2311,170 @@
             setTimeout(() => {
                 generatePDF();
             }, 6000);
+            // 5. Google Drive'a yükle (10s sonra - PDF hazır olduktan sonra)
+            setTimeout(() => {
+                uploadToDrive();
+            }, 10000);
+        }
+
+        // =============================================
+        // GOOGLE DRIVE YÜKLEME
+        // =============================================
+        const DRIVE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyQ9U0BLadvrmmreYRa6sq4qc_vtlRpCamKiviQ9EbTzaBUBeJtQ5JuJFeiS96-0c4-5w/exec';
+
+        function blobToBase64(blob) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+        }
+
+        async function uploadToDrive() {
+            console.log('=== DRIVE YÜKLEME BAŞLIYOR ===');
+            const participantName = document.getElementById('participant-name').value || 'katilimci';
+            const focusGroup = document.getElementById('focus-group').value || 'G0';
+            const dateStr = new Date().toISOString().slice(0, 10);
+            const folderName = `${focusGroup}_${participantName.replace(/\s+/g, '_')}_${dateStr}`;
+            console.log('Klasör adı:', folderName);
+
+            const statusEl = document.getElementById('driveUploadStatus');
+            if (statusEl) {
+                statusEl.textContent = '⏳ Drive\'a yükleniyor...';
+                statusEl.style.color = '#e67e22';
+            }
+
+            var filesToUpload = [];
+
+            try {
+                // 1. WebM ses dosyası (küçük boyut)
+                if (recordings.length > 0) {
+                    const rec = recordings[recordings.length - 1];
+                    const audioBase64 = await blobToBase64(rec.blob);
+                    filesToUpload.push({
+                        fileName: rec.name,
+                        mimeType: rec.blob.type || 'audio/webm',
+                        data: audioBase64
+                    });
+                }
+
+                // 2. TXT deşifre
+                if (transcriptData.transkript.length > 0) {
+                    const txtContent = generateTXTContent();
+                    const txtBlob = new Blob([txtContent], { type: 'text/plain;charset=utf-8' });
+                    const txtBase64 = await blobToBase64(txtBlob);
+                    filesToUpload.push({
+                        fileName: `Desifre_${participantName.replace(/\s+/g, '_')}_${dateStr}.txt`,
+                        mimeType: 'text/plain',
+                        data: txtBase64
+                    });
+                }
+
+                // 3. JSON deşifre
+                if (transcriptData.transkript.length > 0) {
+                    const jsonStr = JSON.stringify(transcriptData, null, 2);
+                    const jsonBlob = new Blob([jsonStr], { type: 'application/json;charset=utf-8' });
+                    const jsonBase64 = await blobToBase64(jsonBlob);
+                    filesToUpload.push({
+                        fileName: `Desifre_${participantName.replace(/\s+/g, '_')}_${dateStr}.json`,
+                        mimeType: 'application/json',
+                        data: jsonBase64
+                    });
+                }
+
+                // 4. PDF
+                if (lastPdfBlob) {
+                    const pdfBase64 = await blobToBase64(lastPdfBlob);
+                    filesToUpload.push({
+                        fileName: `Gorusme_${focusGroup}_${participantName.replace(/\s+/g, '_')}_${dateStr}.pdf`,
+                        mimeType: 'application/pdf',
+                        data: pdfBase64
+                    });
+                }
+
+                if (filesToUpload.length === 0) {
+                    console.log('Drive\'a yüklenecek dosya yok');
+                    if (statusEl) {
+                        statusEl.textContent = '⚠️ Yüklenecek dosya yok';
+                        statusEl.style.color = '#e74c3c';
+                    }
+                    return;
+                }
+
+                console.log('Drive\'a yükleniyor:', filesToUpload.length, 'dosya, klasör:', folderName);
+
+                await fetch(DRIVE_SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: JSON.stringify({
+                        folderName: folderName,
+                        files: filesToUpload
+                    })
+                });
+
+                console.log('Drive yükleme isteği gönderildi');
+                if (statusEl) {
+                    statusEl.innerHTML = '✅ Drive\'a yüklendi — <a href="https://drive.google.com" target="_blank" style="color:#1abc9c;">Drive\'ı aç</a>';
+                    statusEl.style.color = '#27ae60';
+                }
+
+            } catch (error) {
+                console.error('Drive yükleme hatası:', error);
+                if (statusEl) {
+                    statusEl.textContent = '❌ Drive bağlantı hatası';
+                    statusEl.style.color = '#e74c3c';
+                }
+            }
+        }
+
+        // TXT içeriği oluştur (indirme ve Drive yükleme için ortak)
+        function generateTXTContent() {
+            const m = transcriptData.meta;
+            let txt = '';
+            txt += '============================================================\n';
+            txt += '         DEŞİFRE METNİ - DERİNLEMESİNE GÖRÜŞME\n';
+            txt += '         TÜBİTAK 1001 Sinema Seyircisi Araştırması\n';
+            txt += '============================================================\n\n';
+            txt += 'Katılımcı     : ' + (m.katilimci || '-') + '\n';
+            txt += 'Görüşmeci     : ' + (m.gorusmeci || '-') + '\n';
+            txt += 'Odak Grup     : ' + (m.odak_grup || '-') + '\n';
+            txt += 'Tarih         : ' + (m.tarih || '-') + '\n';
+            txt += 'Saat          : ' + (m.saat || '-') + '\n';
+            txt += 'Toplam Süre   : ' + formatDuration(m.sure_saniye || 0) + '\n';
+            txt += 'Ses Dosyası   : ' + (m.ses_dosyasi || '-') + '\n';
+            txt += 'Sistem Sesi   : ' + (m.sistem_sesi ? 'Evet (Zoom)' : 'Hayır') + '\n';
+            txt += 'Toplam Segment: ' + transcriptData.transkript.length + '\n';
+            txt += '\n------------------------------------------------------------\n';
+            txt += '  GÖRÜŞME METNİ\n';
+            txt += '------------------------------------------------------------\n\n';
+
+            let lastQuestion = null;
+            transcriptData.transkript.forEach((seg) => {
+                if (seg.soru_no && seg.soru_no !== lastQuestion) {
+                    txt += '\n  --- Soru ' + seg.soru_no + ' ---\n\n';
+                    lastQuestion = seg.soru_no;
+                }
+                txt += '[' + seg.zaman + ']  ' + seg.metin + '\n';
+            });
+
+            if (transcriptData.markerlar && transcriptData.markerlar.length > 0) {
+                txt += '\n------------------------------------------------------------\n';
+                txt += '  ZAMAN DAMGALARI / MARKER\'LAR\n';
+                txt += '------------------------------------------------------------\n\n';
+                transcriptData.markerlar.forEach((mk) => {
+                    txt += '[' + mk.zaman + ']  ' + mk.etiket + '\n';
+                });
+            }
+
+            txt += '\n============================================================\n';
+            txt += 'Bu dosya Web Speech API ile otomatik oluşturulmuştur.\n';
+            txt += 'Doğruluk kontrolü yapılması önerilir.\n';
+            txt += 'Oluşturma: ' + new Date().toLocaleString('tr-TR') + '\n';
+            txt += '============================================================\n';
+
+            return txt;
         }
 
         // =============================================
@@ -2553,50 +2735,8 @@
         function downloadTranscriptTXT() {
             if (transcriptData.transkript.length === 0) return;
 
+            const txt = generateTXTContent();
             const m = transcriptData.meta;
-            let txt = '';
-            txt += '============================================================\n';
-            txt += '         DEŞİFRE METNİ - DERİNLEMESİNE GÖRÜŞME\n';
-            txt += '         TÜBİTAK 1001 Sinema Seyircisi Araştırması\n';
-            txt += '============================================================\n\n';
-            txt += 'Katılımcı     : ' + (m.katilimci || '-') + '\n';
-            txt += 'Görüşmeci     : ' + (m.gorusmeci || '-') + '\n';
-            txt += 'Odak Grup     : ' + (m.odak_grup || '-') + '\n';
-            txt += 'Tarih         : ' + (m.tarih || '-') + '\n';
-            txt += 'Saat          : ' + (m.saat || '-') + '\n';
-            txt += 'Toplam Süre   : ' + formatDuration(m.sure_saniye || 0) + '\n';
-            txt += 'Ses Dosyası   : ' + (m.ses_dosyasi || '-') + '\n';
-            txt += 'Sistem Sesi   : ' + (m.sistem_sesi ? 'Evet (Zoom)' : 'Hayır') + '\n';
-            txt += 'Toplam Segment: ' + transcriptData.transkript.length + '\n';
-            txt += '\n------------------------------------------------------------\n';
-            txt += '  GÖRÜŞME METNİ\n';
-            txt += '------------------------------------------------------------\n\n';
-
-            let lastQuestion = null;
-            transcriptData.transkript.forEach((seg) => {
-                // Soru değiştiyse başlık ekle
-                if (seg.soru_no && seg.soru_no !== lastQuestion) {
-                    txt += '\n  --- Soru ' + seg.soru_no + ' ---\n\n';
-                    lastQuestion = seg.soru_no;
-                }
-                txt += '[' + seg.zaman + ']  ' + seg.metin + '\n';
-            });
-
-            // Marker'lar varsa ekle
-            if (transcriptData.markerlar && transcriptData.markerlar.length > 0) {
-                txt += '\n------------------------------------------------------------\n';
-                txt += '  ZAMAN DAMGALARI / MARKER\'LAR\n';
-                txt += '------------------------------------------------------------\n\n';
-                transcriptData.markerlar.forEach((mk) => {
-                    txt += '[' + mk.zaman + ']  ' + mk.etiket + '\n';
-                });
-            }
-
-            txt += '\n============================================================\n';
-            txt += 'Bu dosya Web Speech API ile otomatik oluşturulmuştur.\n';
-            txt += 'Doğruluk kontrolü yapılması önerilir.\n';
-            txt += 'Oluşturma: ' + new Date().toLocaleString('tr-TR') + '\n';
-            txt += '============================================================\n';
 
             const blob = new Blob([txt], { type: 'text/plain;charset=utf-8' });
             const url = URL.createObjectURL(blob);
