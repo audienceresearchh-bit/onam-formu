@@ -2009,21 +2009,29 @@
 
                     if (wantSystemAudio) {
                         try {
+                            // Kullanıcıya hatırlatma göster
+                            alert('Şimdi ekran paylaşım diyaloğu açılacak.\n\n1) "Tüm Ekran" sekmesini seçin\n2) Ekranınızı seçin\n3) ALTTAKİ "Sistem sesini de paylaş" KUTUSUNU İŞARETLEYİN\n4) Paylaş butonuna basın');
+
                             systemStream = await navigator.mediaDevices.getDisplayMedia({
-                                video: { width: 1, height: 1, frameRate: 1 },
-                                audio: true
+                                video: true,
+                                audio: true,
+                                preferCurrentTab: false
                             });
 
-                            // Video track'i durdur (sadece ses lazım)
-                            systemStream.getVideoTracks().forEach(t => t.stop());
+                            // Önce audio track kontrol et (video durdurmadan önce)
+                            const audioTracks = systemStream.getAudioTracks();
+                            console.log('getDisplayMedia sonucu - Video tracks:', systemStream.getVideoTracks().length, 'Audio tracks:', audioTracks.length);
 
-                            if (systemStream.getAudioTracks().length > 0) {
-                                console.log('Sistem sesi yakalandı:', systemStream.getAudioTracks()[0].label);
+                            if (audioTracks.length > 0) {
+                                console.log('Sistem sesi yakalandı:', audioTracks[0].label, audioTracks[0].getSettings());
+
+                                // Video track'i durdur (sadece ses lazım)
+                                systemStream.getVideoTracks().forEach(t => t.stop());
 
                                 // Mikrofon + sistem sesini AudioContext ile birleştir
                                 const mixCtx = new (window.AudioContext || window.webkitAudioContext)();
                                 const micSource = mixCtx.createMediaStreamSource(micStream);
-                                const sysSource = mixCtx.createMediaStreamSource(systemStream);
+                                const sysSource = mixCtx.createMediaStreamSource(new MediaStream(audioTracks));
                                 const dest = mixCtx.createMediaStreamDestination();
 
                                 micSource.connect(dest);
@@ -2032,13 +2040,13 @@
                                 recordStream = dest.stream;
                                 console.log('Mikrofon + Sistem sesi birleştirildi');
                             } else {
-                                console.warn('Sistem sesi track bulunamadı, sadece mikrofon ile devam ediliyor');
+                                systemStream.getTracks().forEach(t => t.stop());
                                 systemStream = null;
+                                alert('Sistem sesi yakalanamadı!\n\nDiyalogda "Sistem sesini de paylaş" kutusunu işaretlemeniz gerekiyor.\n\nSadece mikrofon ile kayıt yapılacak.');
                             }
                         } catch (sysErr) {
-                            console.warn('Sistem sesi alınamadı (kullanıcı iptal etti veya desteklenmiyor):', sysErr.message);
+                            console.warn('Sistem sesi alınamadı:', sysErr.message);
                             systemStream = null;
-                            // Sadece mikrofon ile devam et
                         }
                     }
 
