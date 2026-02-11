@@ -967,6 +967,7 @@
             </div>
             <div class="transcript-panel-actions">
                 <button onclick="toggleTranscriptPanel()">Küçült</button>
+                <button id="downloadAllBtn" onclick="downloadAllOnStop()" style="display:none; background:#27ae60; border-color:#27ae60;">Tümünü İndir</button>
             </div>
         </div>
         <div class="transcript-panel-body" id="transcriptBody">
@@ -1084,6 +1085,13 @@
                     <div class="rec-dot" id="recDot"></div>
                     <span class="recording-timer" id="recordingTimer">00:00:00</span>
                 </div>
+            </div>
+            <div style="margin-top: 10px; display: flex; align-items: center; gap: 8px;">
+                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; color: #ecf0f1;">
+                    <input type="checkbox" id="systemAudioCheckbox" style="width: 16px; height: 16px; cursor: pointer;">
+                    Zoom / Sistem Sesini de Kaydet
+                </label>
+                <span style="font-size: 11px; color: #95a5a6;" title="Sadece Chrome/Edge + HTTPS (GitHub Pages) üzerinde çalışır. Ekran paylaşım diyaloğunda 'Sistem sesini paylaş' kutusunu işaretlemeyi unutmayın.">(ℹ️ Sadece online)</span>
             </div>
             <div class="zoom-info">
                 <label>Zoom Kayıt Bilgisi (opsiyonel)</label>
@@ -1739,8 +1747,9 @@
         let dbReady = false;
         let db = null;
 
-        // Mikrofon stream
+        // Mikrofon ve sistem sesi stream
         let micStream = null;
+        let systemStream = null;
 
         // Raw PCM yakalama (güvenilir WAV dönüşümü için - WebM decode atlanır)
         let pcmChunks = [];
@@ -1994,6 +2003,45 @@
                     micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
                     console.log('Mikrofon erişimi sağlandı:', micStream.getAudioTracks()[0].label);
 
+                    // Sistem sesi (Zoom) yakalama
+                    let recordStream = micStream; // Varsayılan: sadece mikrofon
+                    const wantSystemAudio = document.getElementById('systemAudioCheckbox').checked;
+
+                    if (wantSystemAudio) {
+                        try {
+                            systemStream = await navigator.mediaDevices.getDisplayMedia({
+                                video: { width: 1, height: 1, frameRate: 1 },
+                                audio: true
+                            });
+
+                            // Video track'i durdur (sadece ses lazım)
+                            systemStream.getVideoTracks().forEach(t => t.stop());
+
+                            if (systemStream.getAudioTracks().length > 0) {
+                                console.log('Sistem sesi yakalandı:', systemStream.getAudioTracks()[0].label);
+
+                                // Mikrofon + sistem sesini AudioContext ile birleştir
+                                const mixCtx = new (window.AudioContext || window.webkitAudioContext)();
+                                const micSource = mixCtx.createMediaStreamSource(micStream);
+                                const sysSource = mixCtx.createMediaStreamSource(systemStream);
+                                const dest = mixCtx.createMediaStreamDestination();
+
+                                micSource.connect(dest);
+                                sysSource.connect(dest);
+
+                                recordStream = dest.stream;
+                                console.log('Mikrofon + Sistem sesi birleştirildi');
+                            } else {
+                                console.warn('Sistem sesi track bulunamadı, sadece mikrofon ile devam ediliyor');
+                                systemStream = null;
+                            }
+                        } catch (sysErr) {
+                            console.warn('Sistem sesi alınamadı (kullanıcı iptal etti veya desteklenmiyor):', sysErr.message);
+                            systemStream = null;
+                            // Sadece mikrofon ile devam et
+                        }
+                    }
+
                     // MediaRecorder oluştur - desteklenen format
                     let mimeType = 'audio/webm';
                     if (!MediaRecorder.isTypeSupported('audio/webm')) {
@@ -2004,7 +2052,7 @@
                     }
 
                     const options = mimeType ? { mimeType: mimeType } : {};
-                    mediaRecorder = new MediaRecorder(micStream, options);
+                    mediaRecorder = new MediaRecorder(recordStream, options);
                     audioChunks = [];
 
                     console.log('MediaRecorder oluşturuldu, format:', mediaRecorder.mimeType);
@@ -2053,6 +2101,10 @@
                         updateRecordingsList();
                         micStream.getTracks().forEach(track => track.stop());
                         micStream = null;
+                        if (systemStream) {
+                            systemStream.getTracks().forEach(track => track.stop());
+                            systemStream = null;
+                        }
                     };
 
                     mediaRecorder.onerror = (event) => {
@@ -2063,9 +2115,14 @@
                     // Raw PCM yakalama başlat (WAV dönüşümü için - ScriptProcessorNode)
                     try {
                         pcmChunks = [];
-                        pcmAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+                        // Ses kaynağının gerçek sample rate'ini tespit et
+                        const audioTrack = recordStream.getAudioTracks()[0];
+                        const trackSettings = audioTrack.getSettings ? audioTrack.getSettings() : {};
+                        const targetSampleRate = trackSettings.sampleRate || 48000;
+                        pcmAudioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: targetSampleRate });
                         pcmSampleRate = pcmAudioContext.sampleRate;
-                        const pcmSource = pcmAudioContext.createMediaStreamSource(micStream);
+                        console.log('PCM AudioContext sampleRate:', pcmSampleRate, '(track:', targetSampleRate, ')');
+                        const pcmSource = pcmAudioContext.createMediaStreamSource(recordStream);
 
                         // ScriptProcessorNode ile PCM yakalama (file:// uyumlu)
                         const bufferSize = 4096;
@@ -2138,6 +2195,9 @@
 
                 // CANLI DEŞİFREYİ DURDUR
                 stopSpeechRecognition();
+                // "Tümünü İndir" butonunu göster
+                const dlBtn = document.getElementById('downloadAllBtn');
+                if (dlBtn) dlBtn.style.display = 'inline-block';
                 // Meta süresini güncelle
                 if (transcriptData.meta) {
                     transcriptData.meta.sure_saniye = Math.round((Date.now() - (recordingStartTime || Date.now())) / 1000);
@@ -2470,7 +2530,7 @@
                     ses_dosyasi: `Derinlemesine_${focusGroup}_${participantName}_${interviewDate}.wav`,
                     dil: 'tr-TR',
                     tarayici: navigator.userAgent.match(/Chrome|Firefox|Safari|Edge/)?.[0] || 'Bilinmiyor',
-                    sistem_sesi: false
+                    sistem_sesi: document.getElementById('systemAudioCheckbox').checked
                 },
                 transkript: [],
                 markerlar: [],
