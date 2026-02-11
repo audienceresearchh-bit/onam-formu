@@ -2015,7 +2015,7 @@
                             systemStream = await navigator.mediaDevices.getDisplayMedia({
                                 video: true,
                                 audio: true,
-                                preferCurrentTab: false
+                                systemAudio: 'include'
                             });
 
                             // Önce audio track kontrol et (video durdurmadan önce)
