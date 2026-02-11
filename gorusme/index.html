@@ -1890,7 +1890,7 @@
             backupInterval = setInterval(() => {
                 if (isRecording) {
                     backupAudioToIndexedDB();
-                    saveForm(); // Form verilerini de kaydet
+                    saveFormSilent(); // Sessiz kaydet (alert yok, deşifreyi durdurmaz)
                 }
             }, 5 * 60 * 1000); // 5 dakika
             console.log('Otomatik yedekleme başlatıldı (5 dk aralıklarla)');
@@ -1938,10 +1938,10 @@
                 addQuickMarker();
             }
 
-            // 4 tuşu - Kaydet
+            // 4 tuşu - Kaydet (sessiz)
             if (e.key === '4') {
                 e.preventDefault();
-                saveForm();
+                saveFormSilent();
             }
 
             // 5 tuşu - Düzenleme modu
