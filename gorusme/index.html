@@ -2060,38 +2060,23 @@
                         alert('Kayıt hatası: ' + event.error.message);
                     };
 
-                    // Raw PCM yakalama başlat (WAV dönüşümü için - AudioWorklet)
+                    // Raw PCM yakalama başlat (WAV dönüşümü için - ScriptProcessorNode)
                     try {
                         pcmChunks = [];
                         pcmAudioContext = new (window.AudioContext || window.webkitAudioContext)();
                         pcmSampleRate = pcmAudioContext.sampleRate;
                         const pcmSource = pcmAudioContext.createMediaStreamSource(micStream);
 
-                        // AudioWorklet ile PCM yakalama
-                        const workletCode = `
-                            class PCMCaptureProcessor extends AudioWorkletProcessor {
-                                process(inputs) {
-                                    const input = inputs[0];
-                                    if (input && input[0] && input[0].length > 0) {
-                                        this.port.postMessage(new Float32Array(input[0]));
-                                    }
-                                    return true;
-                                }
-                            }
-                            registerProcessor('pcm-capture-processor', PCMCaptureProcessor);
-                        `;
-                        const workletBlob = new Blob([workletCode], { type: 'application/javascript' });
-                        const workletUrl = URL.createObjectURL(workletBlob);
-                        await pcmAudioContext.audioWorklet.addModule(workletUrl);
-                        URL.revokeObjectURL(workletUrl);
-
-                        pcmCaptureNode = new AudioWorkletNode(pcmAudioContext, 'pcm-capture-processor');
-                        pcmCaptureNode.port.onmessage = function(e) {
-                            pcmChunks.push(e.data);
+                        // ScriptProcessorNode ile PCM yakalama (file:// uyumlu)
+                        const bufferSize = 4096;
+                        pcmCaptureNode = pcmAudioContext.createScriptProcessor(bufferSize, 1, 1);
+                        pcmCaptureNode.onaudioprocess = function(e) {
+                            const inputData = e.inputBuffer.getChannelData(0);
+                            pcmChunks.push(new Float32Array(inputData));
                         };
                         pcmSource.connect(pcmCaptureNode);
-                        pcmCaptureNode.connect(pcmAudioContext.destination); // AudioWorklet ses çıkışı üretmez, bağlantı sadece aktif tutmak için
-                        console.log('PCM yakalama başladı (AudioWorklet), sampleRate:', pcmSampleRate);
+                        pcmCaptureNode.connect(pcmAudioContext.destination);
+                        console.log('PCM yakalama başladı (ScriptProcessor), sampleRate:', pcmSampleRate);
                     } catch (pcmErr) {
                         console.warn('PCM yakalama başlatılamadı, fallback kullanılacak:', pcmErr);
                     }
@@ -2254,64 +2239,50 @@
 
         // Kayıt durdurulunca hepsini sırayla indir
         function downloadAllOnStop() {
-            // 1. WAV indir
-            if (recordings.length > 0) {
-                downloadRecording(recordings.length - 1);
-            }
-            // 2. TXT indir (2s sonra)
+            if (recordings.length === 0) return;
+            const idx = recordings.length - 1;
+
+            // 1. WAV indir (0s)
+            console.log('=== OTOMATİK İNDİRME BAŞLIYOR ===');
+            downloadRecording(idx);
+
+            // 2. TXT indir (2s)
             setTimeout(() => {
                 if (transcriptData.transkript.length > 0) {
                     downloadTranscriptTXT();
                 }
             }, 2000);
-            // 3. JSON indir (4s sonra)
+
+            // 3. JSON indir (4s)
             setTimeout(() => {
                 if (transcriptData.transkript.length > 0) {
-                    // JSON meta güncelle
-                    const elapsed = recordingStartTime ? (Date.now() - recordingStartTime) / 1000 : 0;
-                    transcriptData.meta.sure_saniye = Math.round(elapsed);
-                    transcriptData.meta.bitis_zamani = new Date().toISOString();
-                    transcriptData.meta.toplam_segment = transcriptData.transkript.length;
-                    transcriptData.meta.ortalama_guven = transcriptData.transkript.length > 0
-                        ? parseFloat((transcriptData.transkript.reduce((s, t) => s + t.guven, 0) / transcriptData.transkript.length).toFixed(2))
-                        : 0;
-
-                    // Marker'ları ekle
+                    // Marker'ları JSON'a ekle
                     transcriptData.markerlar = [];
-                    if (timestamps['general'] && timestamps['general'].length > 0) {
-                        timestamps['general'].forEach((ts, idx) => {
-                            transcriptData.markerlar.push({ id: idx + 1, zaman: ts.time, saniye: timeToSeconds(ts.time), etiket: ts.note || ('Marker_' + (idx + 1)) });
+                    if (timestamps['general']) {
+                        timestamps['general'].forEach(ts => {
+                            transcriptData.markerlar.push({ zaman: ts.time, etiket: ts.note || 'Marker' });
                         });
                     }
                     for (let i = 1; i <= 38; i++) {
                         const key = 'q' + i;
                         if (timestamps[key] && timestamps[key].length > 0) {
-                            timestamps[key].forEach((time) => {
-                                transcriptData.markerlar.push({ id: transcriptData.markerlar.length + 1, zaman: typeof time === 'string' ? time : time.time, saniye: timeToSeconds(typeof time === 'string' ? time : time.time), etiket: 'Soru_' + i, soru_no: i });
+                            timestamps[key].forEach(ts => {
+                                const timeStr = typeof ts === 'string' ? ts : ts.time;
+                                const noteStr = typeof ts === 'string' ? '' : (ts.note || '');
+                                transcriptData.markerlar.push({ zaman: timeStr, etiket: 'S' + i + '_' + (noteStr || 'Marker') });
                             });
                         }
                     }
-                    transcriptData.markerlar.sort((a, b) => a.saniye - b.saniye);
-
-                    const jsonStr = JSON.stringify(transcriptData, null, 2);
-                    const blob = new Blob([jsonStr], { type: 'application/json;charset=utf-8' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    const katilimci = transcriptData.meta.katilimci || 'katilimci';
-                    const tarih = transcriptData.meta.tarih || new Date().toISOString().slice(0, 10);
-                    a.download = `Desifre_${katilimci.replace(/\s+/g, '_')}_${tarih}.json`;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    URL.revokeObjectURL(url);
+                    downloadTranscriptJSON();
                 }
             }, 4000);
-            // 4. PDF indir (6s sonra)
+
+            // 4. PDF indir (6s)
             setTimeout(() => {
                 generatePDF();
             }, 6000);
-            // 5. Google Drive'a yükle (10s sonra - PDF hazır olduktan sonra)
+
+            // 5. Drive'a yükle (10s - PDF hazır olsun diye bekle)
             setTimeout(() => {
                 uploadToDrive();
             }, 10000);
@@ -2508,6 +2479,10 @@
             transcriptSegmentId = 0;
         }
 
+        // =============================================
+        // CANLI DEŞİFRE SİSTEMİ (Web Speech API)
+        // =============================================
+
         function startSpeechRecognition() {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             if (!SpeechRecognition) {
@@ -2537,12 +2512,10 @@
                 for (let i = event.resultIndex; i < event.results.length; i++) {
                     const result = event.results[i];
                     const text = result[0].transcript.trim();
-                    // Chrome bazen confidence=0 döndürür, final sonuçlar için 0.85 varsay
                     const rawConf = result[0].confidence;
                     const confidence = (rawConf === 0 && result.isFinal) ? 0.85 : rawConf;
 
                     if (result.isFinal) {
-                        // Final sonuç - kaydet
                         if (text.length > 0) {
                             transcriptSegmentId++;
                             const segment = {
@@ -2555,18 +2528,13 @@
                                 final: true
                             };
                             transcriptData.transkript.push(segment);
-
-                            // Panele ekle
                             addTranscriptLine(currentTime, text, confidence, true);
                         }
-
-                        // Interim'i temizle
                         if (interimDiv) {
                             interimDiv.remove();
                             interimDiv = null;
                         }
                     } else {
-                        // Interim sonuç - geçici göster
                         if (!interimDiv) {
                             interimDiv = document.createElement('div');
                             interimDiv.className = 'transcript-line';
@@ -2588,7 +2556,6 @@
             };
 
             speechRecognition.onend = () => {
-                // Kayıt devam ediyorsa otomatik yeniden başlat (aynı instance ile)
                 if (isRecording && speechRecognition) {
                     setTimeout(() => {
                         if (isRecording && speechRecognition) {
@@ -2655,80 +2622,23 @@
             currentActiveQuestion = questionNum;
         }
 
-        // JSON deşifre dosyasını indir
         function downloadTranscriptJSON() {
-            if (transcriptData.transkript.length === 0) {
-                alert('Henüz deşifre verisi yok. Kayıt sırasında konuşma tanındıkça veri oluşur.');
-                return;
-            }
+            if (transcriptData.transkript.length === 0) return;
 
-            // Meta bilgilerini güncelle
-            const elapsed = recordingStartTime ? (Date.now() - recordingStartTime) / 1000 : 0;
-            transcriptData.meta.sure_saniye = Math.round(elapsed);
-            transcriptData.meta.bitis_zamani = new Date().toISOString();
-            transcriptData.meta.toplam_segment = transcriptData.transkript.length;
-            transcriptData.meta.ortalama_guven = transcriptData.transkript.length > 0
-                ? parseFloat((transcriptData.transkript.reduce((s, t) => s + t.guven, 0) / transcriptData.transkript.length).toFixed(2))
-                : 0;
-
-            // Marker'ları JSON'a ekle
-            transcriptData.markerlar = [];
-            if (timestamps['general'] && timestamps['general'].length > 0) {
-                timestamps['general'].forEach((ts, idx) => {
-                    transcriptData.markerlar.push({
-                        id: idx + 1,
-                        zaman: ts.time,
-                        saniye: timeToSeconds(ts.time),
-                        etiket: ts.note || ('Marker_' + (idx + 1))
-                    });
-                });
-            }
-
-            // Soru bazlı marker'ları da ekle
-            for (let i = 1; i <= 38; i++) {
-                const key = 'q' + i;
-                if (timestamps[key] && timestamps[key].length > 0) {
-                    timestamps[key].forEach((time, idx) => {
-                        transcriptData.markerlar.push({
-                            id: transcriptData.markerlar.length + 1,
-                            zaman: typeof time === 'string' ? time : time.time,
-                            saniye: timeToSeconds(typeof time === 'string' ? time : time.time),
-                            etiket: 'Soru_' + i,
-                            soru_no: i
-                        });
-                    });
-                }
-            }
-
-            // Sırala
-            transcriptData.markerlar.sort((a, b) => a.saniye - b.saniye);
-
+            const m = transcriptData.meta;
             const jsonStr = JSON.stringify(transcriptData, null, 2);
             const blob = new Blob([jsonStr], { type: 'application/json;charset=utf-8' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            const katilimci = transcriptData.meta.katilimci || 'katilimci';
-            const tarih = transcriptData.meta.tarih || new Date().toISOString().slice(0, 10);
+            const katilimci = m.katilimci || 'katilimci';
+            const tarih = m.tarih || new Date().toISOString().slice(0, 10);
             a.download = `Desifre_${katilimci.replace(/\s+/g, '_')}_${tarih}.json`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
-
-            console.log('Deşifre JSON indirildi:', transcriptData.transkript.length, 'segment');
-
-            // TXT deşifre dosyasını da indir (okunabilir format)
-            setTimeout(() => {
-                downloadTranscriptTXT();
-            }, 400);
-
-            // WAV kaydı varsa onu da indir
-            if (recordings.length > 0) {
-                setTimeout(() => {
-                    downloadRecording(recordings.length - 1);
-                }, 900);
-            }
+            console.log('Deşifre JSON indirildi');
         }
 
         // Okunabilir TXT deşifre dosyası indir
@@ -4049,6 +3959,7 @@ Rapor oluşturma tarihi: ${new Date().toLocaleString('tr-TR')}
 
             // Düzenleme modu için soruları hazırla
             initEditMode();
+
         });
 
         // ==================== DÜZENLEME MODU FONKSİYONLARI ====================
