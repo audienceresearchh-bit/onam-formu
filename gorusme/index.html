@@ -4,11 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Derinlemesine Görüşme Soru Formu | TÜBİTAK 1001</title>
-    <!-- WAV Cue Point Kütüphanesi -->
-    <script src="https://cdn.jsdelivr.net/npm/wavefile@11.0.0/dist/wavefile.min.js"></script>
-    <!-- PDF Oluşturma Kütüphaneleri -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -17,7 +13,7 @@
             color: #333;
             line-height: 1.6;
         }
-        .container { max-width: 900px; margin: 0 auto; padding: 20px; }
+        .container { margin-left: 280px; padding: 30px 40px; }
 
         /* GÖRÜŞME BİLGİ FORMU */
         .interview-info-box {
@@ -105,32 +101,8 @@
             background: #27ae60;
             color: white;
         }
-        .btn-print {
-            background: #3498db;
-            color: white;
-        }
         .btn-clear {
             background: #e74c3c;
-            color: white;
-        }
-        .btn-export {
-            background: #9b59b6;
-            color: white;
-        }
-        .btn-record {
-            background: #e74c3c;
-            color: white;
-        }
-        .btn-record.recording {
-            background: #c0392b;
-            animation: pulse 1s infinite;
-        }
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.7; }
-        }
-        .btn-json {
-            background: #f39c12;
             color: white;
         }
         .btn-edit {
@@ -365,293 +337,96 @@
             .edit-mode-banner { display: none !important; }
             .edit-controls { display: none !important; }
             .add-probe-btn { display: none !important; }
+            .sidebar { display: none !important; }
+            .container { margin-left: 0 !important; }
+            .category-panel { display: block !important; }
         }
 
-        /* CANLI TRANSKRİPT PANELİ */
-        .transcript-panel {
-            display: none;
+        /* SIDEBAR */
+        .sidebar {
             position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            max-height: 200px;
-            background: rgba(0,0,0,0.92);
-            color: #eee;
-            z-index: 9997;
-            border-top: 3px solid #3498db;
-            font-size: 14px;
-            font-family: 'Segoe UI', sans-serif;
-        }
-        .transcript-panel.active { display: flex; flex-direction: column; }
-        .transcript-panel-header {
+            top: 0; left: 0; bottom: 0;
+            width: 280px;
+            background: linear-gradient(180deg, #1a1f2e 0%, #151925 100%);
+            color: white;
             display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 6px 15px;
-            background: #2c3e50;
-            font-size: 12px;
-            font-weight: 600;
-            flex-shrink: 0;
-        }
-        .transcript-panel-header .tp-status {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .transcript-panel-header .tp-dot {
-            width: 8px; height: 8px;
-            border-radius: 50%;
-            background: #e74c3c;
-        }
-        .transcript-panel-header .tp-dot.listening { background: #2ecc71; animation: blink 1s infinite; }
-        .transcript-panel-body {
+            flex-direction: column;
+            z-index: 200;
             overflow-y: auto;
-            padding: 10px 15px;
-            flex: 1;
-            scroll-behavior: smooth;
         }
-        .transcript-line {
-            padding: 4px 0;
-            border-bottom: 1px solid rgba(255,255,255,0.05);
-            line-height: 1.5;
+        .sidebar-header {
+            padding: 24px 20px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
         }
-        .transcript-line .tl-time {
-            color: #3498db;
-            font-family: monospace;
-            font-size: 11px;
-            margin-right: 8px;
-        }
-        .transcript-line .tl-text { color: #eee; }
-        .transcript-line .tl-interim { color: #999; font-style: italic; }
-        .transcript-line .tl-confidence {
-            color: #f39c12;
-            font-size: 10px;
-            margin-left: 6px;
-            opacity: 0.6;
-        }
-        .transcript-panel-actions {
+        .sidebar-header h2 { font-size: 16px; font-weight: 700; margin-bottom: 2px; }
+        .sidebar-header p { font-size: 11px; opacity: 0.45; }
+        .sidebar-nav { flex: 1; padding: 10px 0; }
+        .nav-item {
             display: flex;
-            gap: 8px;
-        }
-        .transcript-panel-actions button {
-            background: none;
-            border: 1px solid rgba(255,255,255,0.3);
-            color: white;
-            padding: 2px 10px;
-            border-radius: 4px;
-            font-size: 11px;
-            cursor: pointer;
-        }
-        .transcript-panel-actions button:hover {
-            background: rgba(255,255,255,0.1);
-        }
-
-        /* SABİT KAYIT GÖSTERGESİ (Floating) */
-        .floating-recorder {
-            position: fixed;
-            top: 10px;
-            right: 10px;
-            background: linear-gradient(135deg, #c0392b, #e74c3c);
-            color: white;
-            padding: 12px 20px;
-            border-radius: 30px;
-            box-shadow: 0 4px 20px rgba(192, 57, 43, 0.5);
-            z-index: 9999;
-            display: none;
             align-items: center;
             gap: 12px;
-            font-size: 14px;
-            font-weight: 500;
-            animation: floatPulse 2s infinite;
-        }
-        .floating-recorder.active {
-            display: flex;
-        }
-        @keyframes floatPulse {
-            0%, 100% { box-shadow: 0 4px 20px rgba(192, 57, 43, 0.5); }
-            50% { box-shadow: 0 4px 30px rgba(192, 57, 43, 0.8); }
-        }
-        .floating-recorder .rec-icon {
-            width: 14px;
-            height: 14px;
-            background: white;
-            border-radius: 50%;
-            animation: blink 1s infinite;
-        }
-        .floating-recorder .timer {
-            font-family: monospace;
-            font-size: 18px;
-            font-weight: bold;
-        }
-        .floating-recorder .shortcut-hint {
-            font-size: 11px;
-            opacity: 0.8;
-            border-left: 1px solid rgba(255,255,255,0.3);
-            padding-left: 12px;
-            margin-left: 4px;
-        }
-        .floating-recorder button {
-            background: white;
-            color: #c0392b;
-            border: none;
-            padding: 6px 12px;
-            border-radius: 15px;
-            font-size: 12px;
-            font-weight: 600;
+            padding: 11px 20px;
             cursor: pointer;
+            border-left: 3px solid transparent;
+            color: rgba(255,255,255,0.5);
+            font-size: 13px;
+            transition: all 0.15s;
+            user-select: none;
         }
-        .floating-recorder button:hover {
-            background: #f0f0f0;
+        .nav-item:hover { background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.85); }
+        .nav-item.active { background: rgba(255,255,255,0.07); color: white; }
+        .nav-icon {
+            width: 32px; height: 32px;
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 13px; font-weight: 700; color: white; flex-shrink: 0;
         }
-
-        /* SES KAYDI BÖLÜMÜ */
-        .recording-section {
-            background: linear-gradient(135deg, #c0392b, #e74c3c);
-            color: white;
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 20px;
-            box-shadow: 0 4px 15px rgba(192, 57, 43, 0.3);
+        .nav-label { flex: 1; font-weight: 500; }
+        .nav-badge {
+            font-size: 11px;
+            background: rgba(255,255,255,0.1);
+            padding: 2px 8px;
+            border-radius: 10px;
         }
-        .recording-section h3 {
-            font-size: 16px;
-            margin-bottom: 15px;
+        .nav-progress {
+            width: 100%;
+            height: 3px;
+            background: rgba(255,255,255,0.08);
+            border-radius: 2px;
+            margin-top: 4px;
+        }
+        .nav-progress-bar {
+            height: 100%;
+            border-radius: 2px;
+            transition: width 0.3s;
+        }
+        .sidebar-actions {
+            padding: 14px 20px;
+            border-top: 1px solid rgba(255,255,255,0.06);
             display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .recording-controls {
-            display: flex;
-            gap: 10px;
-            align-items: center;
             flex-wrap: wrap;
+            gap: 6px;
         }
-        .recording-status {
+        .sidebar-actions .btn {
+            flex: 1;
+            min-width: calc(50% - 3px);
+            justify-content: center;
+            font-size: 11px;
+            padding: 7px 8px;
+            border-radius: 6px;
+        }
+        .sidebar-status {
+            padding: 10px 20px;
+            border-top: 1px solid rgba(255,255,255,0.06);
             display: flex;
             align-items: center;
             gap: 8px;
-            padding: 8px 15px;
-            background: rgba(255,255,255,0.15);
-            border-radius: 20px;
-            font-size: 13px;
-        }
-        .rec-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: #fff;
-        }
-        .rec-dot.active {
-            background: #2ecc71;
-            animation: blink 1s infinite;
-        }
-        @keyframes blink {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.3; }
-        }
-        .recording-timer {
-            font-family: monospace;
-            font-size: 18px;
-            font-weight: bold;
-        }
-        .zoom-info {
-            margin-top: 15px;
-            padding-top: 15px;
-            border-top: 1px solid rgba(255,255,255,0.2);
-        }
-        .zoom-info label {
-            font-size: 12px;
-            opacity: 0.8;
-            display: block;
-            margin-bottom: 5px;
-        }
-        .zoom-info input {
-            width: 100%;
-            padding: 8px 12px;
-            border: none;
-            border-radius: 6px;
-            font-size: 13px;
-        }
-        .recordings-list {
-            margin-top: 15px;
-            background: rgba(255,255,255,0.1);
-            border-radius: 8px;
-            padding: 10px;
-        }
-        .recordings-list h4 {
-            font-size: 12px;
-            opacity: 0.8;
-            margin-bottom: 8px;
-        }
-        .recording-item {
-            padding: 12px;
-            background: rgba(255,255,255,0.1);
-            border-radius: 8px;
-            margin-bottom: 8px;
-            font-size: 13px;
-        }
-        .recording-item:last-child { margin-bottom: 0; }
-        .recording-item-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-        .recording-item-name {
-            font-weight: 500;
-        }
-        .recording-item button {
-            padding: 5px 12px;
-            border: none;
-            border-radius: 4px;
-            background: white;
-            color: #e74c3c;
-            cursor: pointer;
-            font-size: 12px;
-            margin-left: 5px;
-        }
-        .recording-item button:hover {
-            background: #f0f0f0;
-        }
-        .recording-item audio {
-            width: 100%;
-            height: 40px;
-            margin-top: 8px;
         }
 
-        /* ZAMAN DAMGASI */
-        .timestamp-btn {
-            background: #9b59b6;
-            color: white;
-            border: none;
-            padding: 4px 10px;
-            border-radius: 4px;
-            font-size: 11px;
-            cursor: pointer;
-            margin-left: 10px;
-        }
-        .timestamp-btn:hover {
-            background: #8e44ad;
-        }
-        .timestamps-list {
-            margin-top: 8px;
-            margin-bottom: 8px;
-            font-size: 12px;
-            color: #8e44ad;
-            min-height: 5px;
-        }
-        .timestamps-list:empty {
-            display: none;
-        }
-        .timestamps-list span {
-            display: inline-block;
-            background: #f5eef8;
-            padding: 4px 10px;
-            border-radius: 12px;
-            margin: 3px;
-            font-weight: 500;
-            border: 1px solid #d8bfe8;
-        }
+        /* CATEGORY PANELS */
+        .category-panel { display: none; }
+        .category-panel.active { display: block; animation: panelIn 0.2s ease; }
+        @keyframes panelIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 
         /* NOT ALANLARI */
         .note-area {
@@ -904,23 +679,17 @@
             accent-color: #1abc9c;
         }
 
-        .footer {
-            text-align: center;
-            padding: 20px;
-            color: #999;
-            font-size: 12px;
-        }
 
         @media print {
             body { background: white; }
-            .container { max-width: 100%; padding: 10px; }
+            .sidebar { display: none !important; }
+            .container { margin-left: 0 !important; max-width: 100%; padding: 10px; }
+            .category-panel { display: block !important; }
             .section { break-inside: avoid; }
             .checklist input[type="checkbox"] { -webkit-appearance: none; border: 1px solid #999; }
             .action-buttons { display: none; }
             .status-indicator { display: none; }
-            .recording-section { display: none; }
-            .transcript-panel { display: none !important; }
-            .timestamp-btn { display: none; }
+
             .interview-info-box {
                 background: #f5f5f5 !important;
                 color: #333 !important;
@@ -949,32 +718,6 @@
     </style>
 </head>
 <body>
-    <!-- SABİT KAYIT GÖSTERGESİ -->
-    <div class="floating-recorder" id="floatingRecorder">
-        <div class="rec-icon"></div>
-        <span class="timer" id="floatingTimer">00:00:00</span>
-        <span class="shortcut-hint">3 = Zaman</span>
-        <button onclick="addQuickMarker()">+ Zaman</button>
-        <button onclick="toggleRecording()">Durdur</button>
-    </div>
-
-    <!-- CANLI TRANSKRİPT PANELİ -->
-    <div class="transcript-panel" id="transcriptPanel">
-        <div class="transcript-panel-header">
-            <div class="tp-status">
-                <div class="tp-dot" id="transcriptDot"></div>
-                <span id="transcriptStatus">Deşifre bekliyor...</span>
-            </div>
-            <div class="transcript-panel-actions">
-                <button onclick="toggleTranscriptPanel()">Küçült</button>
-                <button id="downloadAllBtn" onclick="downloadAllOnStop()" style="display:none; background:#27ae60; border-color:#27ae60;">Tümünü İndir</button>
-            </div>
-        </div>
-        <div class="transcript-panel-body" id="transcriptBody">
-            <div style="color: #888; font-style: italic; font-size: 13px;">Kayıt başladığında canlı deşifre burada görünecek...</div>
-        </div>
-    </div>
-
     <!-- DÜZENLEME MODU BANNER -->
     <div class="edit-mode-banner" id="editModeBanner">
         ✏️ DÜZENLEME MODU AKTİF
@@ -1001,7 +744,55 @@
         </div>
     </div>
 
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <h2>Görüşme Formu</h2>
+            <p>TÜBİTAK 1001 - Sinema Seyircisi</p>
+        </div>
+        <nav class="sidebar-nav">
+            <div class="nav-item active" onclick="showCategory('cat-info', this)">
+                <span class="nav-icon" style="background: #2c3e50;">i</span>
+                <span class="nav-label">Görüşme Bilgileri</span>
+            </div>
+            <div class="nav-item" onclick="showCategory('cat-1', this)">
+                <span class="nav-icon" style="background: #27ae60;">1</span>
+                <span class="nav-label">Sosyo-Demografik</span>
+                <span class="nav-badge">10</span>
+            </div>
+            <div class="nav-item" onclick="showCategory('cat-2', this)">
+                <span class="nav-icon" style="background: #8e44ad;">2</span>
+                <span class="nav-label">Medya Alışkanlıkları</span>
+                <span class="nav-badge">3</span>
+            </div>
+            <div class="nav-item" onclick="showCategory('cat-3', this)">
+                <span class="nav-icon" style="background: #e67e22;">3</span>
+                <span class="nav-label">Sinema Deneyimi</span>
+                <span class="nav-badge">18</span>
+            </div>
+            <div class="nav-item" onclick="showCategory('cat-4', this)">
+                <span class="nav-icon" style="background: #6c3483;">4</span>
+                <span class="nav-label">Ek Derinleştirme</span>
+                <span class="nav-badge">7</span>
+            </div>
+            <div class="nav-item" onclick="showCategory('cat-5', this)">
+                <span class="nav-icon" style="background: #3498db;">&#10003;</span>
+                <span class="nav-label">Kontrol & Deşifre</span>
+            </div>
+        </nav>
+        <div class="sidebar-actions">
+            <button class="btn btn-save" onclick="saveForm()">Kaydet</button>
+            <button class="btn btn-clear" onclick="clearForm()">Temizle</button>
+            <button class="btn btn-edit" id="editModeBtn" onclick="toggleEditMode()">Düzenle</button>
+        </div>
+        <div class="sidebar-status">
+            <div class="status-dot" id="save-status-dot"></div>
+            <span class="status-text" id="save-status-text" style="font-size: 11px; opacity: 0.6;">Henüz kaydedilmedi</span>
+        </div>
+    </aside>
+
     <div class="container">
+        <div id="cat-info" class="category-panel active">
         <!-- HEADER -->
         <div class="header">
             <h1>DERİNLEMESİNE GÖRÜŞME SORU FORMU</h1>
@@ -1044,92 +835,11 @@
                     <label>Görüşme Tarihi</label>
                     <input type="date" id="interview-date">
                 </div>
-                <div class="form-field">
-                    <label>Başlangıç Saati</label>
-                    <input type="time" id="interview-time">
-                </div>
-                <div class="form-field">
-                    <label>Görüşme Durumu</label>
-                    <select id="interview-status">
-                        <option value="basladi">Başladı</option>
-                        <option value="devam">Devam Ediyor</option>
-                        <option value="tamamlandi">Tamamlandı</option>
-                        <option value="iptal">İptal Edildi</option>
-                    </select>
-                </div>
-                <div class="form-field">
-                    <label>Görüşme Türü</label>
-                    <select id="interview-type">
-                        <option value="online">Online (Zoom/Meet)</option>
-                        <option value="telefon">Telefon</option>
-                        <option value="yuzyuze">Yüz Yüze</option>
-                    </select>
-                </div>
-            </div>
-            <div class="status-indicator">
-                <div class="status-dot" id="save-status-dot"></div>
-                <span class="status-text" id="save-status-text">Henüz kaydedilmedi</span>
             </div>
         </div>
+        </div><!-- /cat-info -->
 
-        <!-- SES KAYDI BÖLÜMÜ -->
-        <div class="recording-section">
-            <h3>Ses Kaydı ve Zoom</h3>
-
-
-            <div class="recording-controls">
-                <button class="btn btn-record" id="recordBtn" onclick="toggleRecording()">
-                    <span id="recordBtnText">Kayda Başla</span>
-                </button>
-                <div class="recording-status">
-                    <div class="rec-dot" id="recDot"></div>
-                    <span class="recording-timer" id="recordingTimer">00:00:00</span>
-                </div>
-            </div>
-            <div style="margin-top: 10px; display: flex; align-items: center; gap: 8px;">
-                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; color: #ecf0f1;">
-                    <input type="checkbox" id="systemAudioCheckbox" style="width: 16px; height: 16px; cursor: pointer;">
-                    Zoom / Sistem Sesini de Kaydet
-                </label>
-                <span style="font-size: 11px; color: #95a5a6;" title="Sadece Chrome/Edge + HTTPS (GitHub Pages) üzerinde çalışır. Ekran paylaşım diyaloğunda 'Sistem sesini paylaş' kutusunu işaretlemeyi unutmayın.">(ℹ️ Sadece online)</span>
-            </div>
-            <div class="zoom-info">
-                <label>Zoom Kayıt Bilgisi (opsiyonel)</label>
-                <input type="text" id="zoom-recording-info" placeholder="Zoom kayıt dosya adı veya linki...">
-            </div>
-            <div class="recordings-list" id="recordingsList" style="display: none;">
-                <h4>Kaydedilen Ses Dosyaları</h4>
-                <div id="recordingsContainer"></div>
-            </div>
-
-            <!-- KLAVYE KISAYOLLARI BİLGİ NOTU -->
-            <div style="margin-top: 15px; padding: 15px; background: rgba(255,255,255,0.1); border-radius: 8px; border-left: 4px solid #f1c40f;">
-                <h4 style="margin: 0 0 10px 0; font-size: 14px; color: #f1c40f;">⌨️ Klavye Kısayolları</h4>
-                <div style="display: flex; gap: 20px; font-size: 13px; flex-wrap: wrap;">
-                    <div>
-                        <strong style="color: #2ecc71;">1</strong><br>
-                        <span style="opacity: 0.9;">Kayıt Başlat</span>
-                    </div>
-                    <div>
-                        <strong style="color: #fff;">2</strong><br>
-                        <span style="opacity: 0.9;">Kayıt Durdur</span>
-                    </div>
-                    <div>
-                        <strong style="color: #f1c40f;">3</strong><br>
-                        <span style="opacity: 0.9;">Zaman</span>
-                    </div>
-                    <div>
-                        <strong style="color: #3498db;">4</strong><br>
-                        <span style="opacity: 0.9;">Kaydet</span>
-                    </div>
-                    <div>
-                        <strong style="color: #9b59b6;">5</strong><br>
-                        <span style="opacity: 0.9;">Düzenleme</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-
+        <div id="cat-1" class="category-panel">
         <!-- BÖLÜM 1: SOSYO-DEMOGRAFİK YAPI -->
         <div class="section">
             <div class="section-header isinma">
@@ -1143,9 +853,7 @@
                     <div class="question-text">
                         <span class="question-number">1</span>
                         <span class="main">Kendinizden biraz bahsedebilir misiniz?</span>
-                        <button class="timestamp-btn" onclick="addTimestamp(1)">+ Zaman</button>
                     </div>
-                        <div class="timestamps-list" id="timestamps-q1"></div>
                 </div>
 
                 <!-- SORU 2 -->
@@ -1153,9 +861,7 @@
                     <div class="question-text">
                         <span class="question-number">2</span>
                         <span class="main">Nasıl bir yerde doğdunuz ve büyüdünüz?</span>
-                        <button class="timestamp-btn" onclick="addTimestamp(2)">+ Zaman</button>
                     </div>
-                        <div class="timestamps-list" id="timestamps-q2"></div>
                     <div class="probe">
                         <div class="probe-title">Takip Sorusu</div>
                         <ul>
@@ -1169,9 +875,7 @@
                     <div class="question-text">
                         <span class="question-number">3</span>
                         <span class="main">Anne-babanız nerede/nasıl bir yerde büyümüşler?</span>
-                        <button class="timestamp-btn" onclick="addTimestamp(3)">+ Zaman</button>
                     </div>
-                        <div class="timestamps-list" id="timestamps-q3"></div>
                 </div>
 
                 <!-- SORU 4 -->
@@ -1179,9 +883,7 @@
                     <div class="question-text">
                         <span class="question-number">4</span>
                         <span class="main">Evde hangi dil veya diller ağırlıklı konuşulurdu?</span>
-                        <button class="timestamp-btn" onclick="addTimestamp(4)">+ Zaman</button>
                     </div>
-                        <div class="timestamps-list" id="timestamps-q4"></div>
                     <div class="probe">
                         <ul>
                             <li>Anne-babanızın bildiği başka diller var mı?</li>
@@ -1194,9 +896,7 @@
                     <div class="question-text">
                         <span class="question-number">5</span>
                         <span class="main">Anne-babanız ne işle uğraşıyorlar?</span>
-                        <button class="timestamp-btn" onclick="addTimestamp(5)">+ Zaman</button>
                     </div>
-                        <div class="timestamps-list" id="timestamps-q5"></div>
                 </div>
 
                 <!-- SORU 6 -->
@@ -1204,9 +904,7 @@
                     <div class="question-text">
                         <span class="question-number">6</span>
                         <span class="main">Ailenizin gündelik hayatı nasıl geçerdi? Serbest zamanlarında neler yaparlardı?</span>
-                        <button class="timestamp-btn" onclick="addTimestamp(6)">+ Zaman</button>
                     </div>
-                        <div class="timestamps-list" id="timestamps-q6"></div>
                     <div class="probe">
                         <ul>
                             <li>Spor, kültürel etkinlikler, sanat, gezi, seyahat?</li>
@@ -1221,9 +919,7 @@
                     <div class="question-text">
                         <span class="question-number">7</span>
                         <span class="main">Eve kitap ve gazete/süreli yayınlar alınır mıydı?</span>
-                        <button class="timestamp-btn" onclick="addTimestamp(7)">+ Zaman</button>
                     </div>
-                        <div class="timestamps-list" id="timestamps-q7"></div>
                     <div class="probe">
                         <ul>
                             <li>Evinizde kitaplık/kütüphane var mıydı?</li>
@@ -1236,9 +932,7 @@
                     <div class="question-text">
                         <span class="question-number">8</span>
                         <span class="main">Eğitim durumunuzu öğrenebilir miyiz? Hangi okullarda okudunuz?</span>
-                        <button class="timestamp-btn" onclick="addTimestamp(8)">+ Zaman</button>
                     </div>
-                        <div class="timestamps-list" id="timestamps-q8"></div>
                     <div class="probe">
                         <ul>
                             <li>Eğitim hayatınızdaki okul deneyimlerinizi nasıl anımsıyorsunuz? Detaylandırabilir misiniz?</li>
@@ -1253,9 +947,7 @@
                     <div class="question-text">
                         <span class="question-number">9</span>
                         <span class="main">Öğrenci ise bir işle aynı zamanda uğraşıyor musunuz? Öğrenci değilse ne iş yapıyorsunuz? Nerede/hangi sektörde çalışıyorsunuz? (Kamu/özel vb.)</span>
-                        <button class="timestamp-btn" onclick="addTimestamp(9)">+ Zaman</button>
                     </div>
-                        <div class="timestamps-list" id="timestamps-q9"></div>
                 </div>
 
                 <!-- SORU 10 -->
@@ -1263,9 +955,7 @@
                     <div class="question-text">
                         <span class="question-number">10</span>
                         <span class="main">Kendinizi ekonomik olarak hangi sınıfa yakın görüyorsunuz, neden?</span>
-                        <button class="timestamp-btn" onclick="addTimestamp(10)">+ Zaman</button>
                     </div>
-                        <div class="timestamps-list" id="timestamps-q10"></div>
                     <div class="probe">
                         <ul>
                             <li>Aylık kazancınız yaklaşık olarak ne kadar?</li>
@@ -1275,7 +965,9 @@
                 </div>
             </div>
         </div>
+        </div><!-- /cat-1 -->
 
+        <div id="cat-2" class="category-panel">
         <!-- BÖLÜM 2: MEDYA ALIŞKANLIKLARI VE ERİŞİMİ -->
         <div class="section">
             <div class="section-header ana">
@@ -1289,9 +981,7 @@
                     <div class="question-text">
                         <span class="question-number">11</span>
                         <span class="main">Boş zamanlarınızda neler yaparsınız? (sanat, spor, kültür, gezi/seyahat, eğlence vb.)</span>
-                        <button class="timestamp-btn" onclick="addTimestamp(11)">+ Zaman</button>
                     </div>
-                        <div class="timestamps-list" id="timestamps-q11"></div>
                     <div class="probe">
                         <ul>
                             <li>Sanatın bir dalıyla ilgilenir misiniz?</li>
@@ -1309,9 +999,7 @@
                     <div class="question-text">
                         <span class="question-number">12</span>
                         <span class="main">Son bir ay içinde gittiğiniz kültürel etkinlikler var mı? (Tiyatro, sergi, müze, opera, halk şenliği gibi)</span>
-                        <button class="timestamp-btn" onclick="addTimestamp(12)">+ Zaman</button>
                     </div>
-                        <div class="timestamps-list" id="timestamps-q12"></div>
                 </div>
 
                 <!-- SORU 13 -->
@@ -1319,9 +1007,7 @@
                     <div class="question-text">
                         <span class="question-number">13</span>
                         <span class="main">Şu anda nerede yaşıyorsunuz? Şu an yaşadığınız yerde sinema/kültür mekânlarına erişim nasıl?</span>
-                        <button class="timestamp-btn" onclick="addTimestamp(13)">+ Zaman</button>
                     </div>
-                        <div class="timestamps-list" id="timestamps-q13"></div>
                     <div class="probe">
                         <ul>
                             <li>Yakın çevrede bağımsız salon/kültür merkezi var mı?</li>
@@ -1330,7 +1016,9 @@
                 </div>
             </div>
         </div>
+        </div><!-- /cat-2 -->
 
+        <div id="cat-3" class="category-panel">
         <!-- BÖLÜM 3: SİNEMA DENEYİMİ VE KAVRAYIŞI -->
         <div class="section">
             <div class="section-header derinlestirme">
@@ -1344,9 +1032,7 @@
                     <div class="question-text">
                         <span class="question-number">14</span>
                         <span class="main">Sinemaya dair ilginiz nasıl gelişti?</span>
-                        <button class="timestamp-btn" onclick="addTimestamp(14)">+ Zaman</button>
                     </div>
-                        <div class="timestamps-list" id="timestamps-q14"></div>
                     <div class="probe">
                         <ul>
                             <li>İlk kez kaç yaşında sinema salonunda film izlemeye gitmiştiniz? Hangi film, hangi salon, kiminle? Deneyimlerinizi paylaşır mısınız? Sizde bıraktığı duygu?</li>
@@ -1360,9 +1046,7 @@
                     <div class="question-text">
                         <span class="question-number">15</span>
                         <span class="main">Sinema sizin için ne ifade eder? Film izlemek sizin için ne demek? (Merak, öğrenmek, duygusal deneyim, entelektüel haz gibi)</span>
-                        <button class="timestamp-btn" onclick="addTimestamp(15)">+ Zaman</button>
                     </div>
-                        <div class="timestamps-list" id="timestamps-q15"></div>
                 </div>
 
                 <!-- SORU 16 -->
@@ -1370,9 +1054,7 @@
                     <div class="question-text">
                         <span class="question-number">16</span>
                         <span class="main">Bir filmi seçerken neye göre seçersiniz? Bir filmi izlemeyi seçmenizde hangi etmenler rol oynar? Neden?</span>
-                        <button class="timestamp-btn" onclick="addTimestamp(16)">+ Zaman</button>
                     </div>
-                        <div class="timestamps-list" id="timestamps-q16"></div>
                     <div class="probe">
                         <ul>
                             <li>Yönetmen/tür/eleştiri/arkadaş/algoritma?</li>
@@ -1390,9 +1072,7 @@
                     <div class="question-text">
                         <span class="question-number">17</span>
                         <span class="main">Filmleri izlerken daha çok hangi teknolojik araçları kullanırsınız? (Tablet, telefon, TV) Neden?</span>
-                        <button class="timestamp-btn" onclick="addTimestamp(17)">+ Zaman</button>
                     </div>
-                        <div class="timestamps-list" id="timestamps-q17"></div>
                     <div class="probe">
                         <ul>
                             <li>Seyahat halindeyken film izler misiniz? (uçak/tren/otobüs ve toplu taşıma) Filmin türü, kullanılan araç, deneyimin kendisine dair açıklama</li>
@@ -1405,9 +1085,7 @@
                     <div class="question-text">
                         <span class="question-number">18</span>
                         <span class="main">Filmleri yalnız mı birileriyle mi izlemeyi tercih edersiniz?</span>
-                        <button class="timestamp-btn" onclick="addTimestamp(18)">+ Zaman</button>
                     </div>
-                        <div class="timestamps-list" id="timestamps-q18"></div>
                     <div class="probe">
                         <ul>
                             <li>Daha çok kiminle, hangi durumlarda değişiyor?</li>
@@ -1421,9 +1099,7 @@
                     <div class="question-text">
                         <span class="question-number">19</span>
                         <span class="main">Genelde nerelerde (AVM, açık hava, kültür merkezi, müze, vb.) film gösterilerine katılırsınız? Neden buraları tercih edersiniz?</span>
-                        <button class="timestamp-btn" onclick="addTimestamp(19)">+ Zaman</button>
                     </div>
-                        <div class="timestamps-list" id="timestamps-q19"></div>
                     <div class="probe">
                         <ul>
                             <li>Bu gösterim yerlerini örnekler misiniz? Örneğin hangi sinema salonu, açık hava gösterimi, müze, kültür merkezinde ne izlemiştiniz?</li>
@@ -1436,9 +1112,7 @@
                     <div class="question-text">
                         <span class="question-number">20</span>
                         <span class="main">Özellikle tercih ettiğiniz bir salon var mı? Neden?</span>
-                        <button class="timestamp-btn" onclick="addTimestamp(20)">+ Zaman</button>
                     </div>
-                        <div class="timestamps-list" id="timestamps-q20"></div>
                 </div>
 
                 <!-- SORU 21 -->
@@ -1446,9 +1120,7 @@
                     <div class="question-text">
                         <span class="question-number">21</span>
                         <span class="main">En son ne zaman hangi sinema salonunda film izlediniz?</span>
-                        <button class="timestamp-btn" onclick="addTimestamp(21)">+ Zaman</button>
                     </div>
-                        <div class="timestamps-list" id="timestamps-q21"></div>
                 </div>
 
                 <!-- SORU 22 -->
@@ -1456,9 +1128,7 @@
                     <div class="question-text">
                         <span class="question-number">22</span>
                         <span class="main">Sinemaya gitmeden önce veya sonrasında yaptığınız etkinlikler var mı?</span>
-                        <button class="timestamp-btn" onclick="addTimestamp(22)">+ Zaman</button>
                     </div>
-                        <div class="timestamps-list" id="timestamps-q22"></div>
                     <div class="probe">
                         <ul>
                             <li>Yemek yemek</li>
@@ -1473,9 +1143,7 @@
                     <div class="question-text">
                         <span class="question-number">23</span>
                         <span class="main">Sinema salonu dışında ilk kez hangi mecralarda -video, dijital platformlarda, internet sitesinde, korsan olarak- kaç yaşında film izlediğinizi anımsıyor musunuz?</span>
-                        <button class="timestamp-btn" onclick="addTimestamp(23)">+ Zaman</button>
                     </div>
-                        <div class="timestamps-list" id="timestamps-q23"></div>
                     <div class="probe">
                         <ul>
                             <li>Anımsıyorsa: Hangi mecrada, ne izlemiştiniz? Nasıl deneyimlemiştiniz?</li>
@@ -1488,9 +1156,7 @@
                     <div class="question-text">
                         <span class="question-number">24</span>
                         <span class="main">Abonesi/üyesi olduğunuz video platformları (Netflix, HBO Max gibi) neler? Neden?</span>
-                        <button class="timestamp-btn" onclick="addTimestamp(24)">+ Zaman</button>
                     </div>
-                        <div class="timestamps-list" id="timestamps-q24"></div>
                     <div class="probe">
                         <ul>
                             <li>Daha çok hangi platformlardan film izliyorsunuz?</li>
@@ -1503,9 +1169,7 @@
                     <div class="question-text">
                         <span class="question-number">25</span>
                         <span class="main">Sinema salonu ve ev dışında film izlediğiniz bir yer var mı? Evetse, açıklayınız.</span>
-                        <button class="timestamp-btn" onclick="addTimestamp(25)">+ Zaman</button>
                     </div>
-                        <div class="timestamps-list" id="timestamps-q25"></div>
                 </div>
 
                 <!-- SORU 26 -->
@@ -1513,9 +1177,7 @@
                     <div class="question-text">
                         <span class="question-number">26</span>
                         <span class="main">Kendi sinema deneyiminizi nasıl tarif edersiniz? Sizin için film izlemenin, sinemaya gitmenin -film hakkında konuşmanın- önemi/anlamı nedir?</span>
-                        <button class="timestamp-btn" onclick="addTimestamp(26)">+ Zaman</button>
                     </div>
-                        <div class="timestamps-list" id="timestamps-q26"></div>
                     <div class="probe">
                         <ul>
                             <li>Film hakkında yorum/paylaşım yapar mısınız? (nerede, neden?) En son hangi film üzerine hangi mecrada yorum yapmıştınız? Sizi yorum yapmaya yönlendiren nedenler nelerdi?</li>
@@ -1529,9 +1191,7 @@
                     <div class="question-text">
                         <span class="question-number">27</span>
                         <span class="main">Sinema zevkinizin zamanla değiştiğini düşünüyor musunuz? Ne zaman? Neden?</span>
-                        <button class="timestamp-btn" onclick="addTimestamp(27)">+ Zaman</button>
                     </div>
-                        <div class="timestamps-list" id="timestamps-q27"></div>
                     <div class="probe">
                         <ul>
                             <li>Sinema deneyiminizi ve sinemaya bakış açınızı etkileyen ve/ya değiştiren spesifik bir an/olay var mı?</li>
@@ -1544,9 +1204,7 @@
                     <div class="question-text">
                         <span class="question-number">28</span>
                         <span class="main">Film beğeninizin sizi başkalarından (çevrenizdekilerden?) ayırdığını düşünüyor musunuz? Film zevkinizin çevrenizdekilerden farklı olduğunu düşündüğünüz oluyor mu?</span>
-                        <button class="timestamp-btn" onclick="addTimestamp(28)">+ Zaman</button>
                     </div>
-                        <div class="timestamps-list" id="timestamps-q28"></div>
                     <div class="probe">
                         <ul>
                             <li>Bir filmin iyi olduğunu nasıl anlarsınız?</li>
@@ -1560,9 +1218,7 @@
                     <div class="question-text">
                         <span class="question-number">29</span>
                         <span class="main">Festivalde film izler misiniz? Bu festivale gitmenin sizin için anlamı ve önemi nedir? Hangi festivalleri takip edersiniz? (Fiziksel/Çevrimiçi)</span>
-                        <button class="timestamp-btn" onclick="addTimestamp(29)">+ Zaman</button>
                     </div>
-                        <div class="timestamps-list" id="timestamps-q29"></div>
                     <div class="probe">
                         <ul>
                             <li>Festival filmleri / sanat filmleri sizce kime hitap eder?</li>
@@ -1575,9 +1231,7 @@
                     <div class="question-text">
                         <span class="question-number">30</span>
                         <span class="main">Sizin için sinefil ne anlama geliyor? Kendinizi sinefil olarak tanımlıyor musunuz? Neden?</span>
-                        <button class="timestamp-btn" onclick="addTimestamp(30)">+ Zaman</button>
                     </div>
-                        <div class="timestamps-list" id="timestamps-q30"></div>
                 </div>
 
                 <!-- SORU 31 -->
@@ -1585,13 +1239,13 @@
                     <div class="question-text">
                         <span class="question-number">31</span>
                         <span class="main">Eklemek istediğiniz bir şey var mı?</span>
-                        <button class="timestamp-btn" onclick="addTimestamp(31)">+ Zaman</button>
                     </div>
-                        <div class="timestamps-list" id="timestamps-q31"></div>
                 </div>
             </div>
         </div>
+        </div><!-- /cat-3 -->
 
+        <div id="cat-4" class="category-panel">
         <!-- EK DERİNLEŞTİRME SORULARI -->
         <div class="section">
             <div class="section-header" style="background: linear-gradient(90deg, #6c3483, #8e44ad);">
@@ -1605,9 +1259,7 @@
                     <div class="question-text">
                         <span class="question-number" style="background: #6c3483;">E1</span>
                         <span class="main">Bir filmin "iyi" olduğuna nasıl karar verirsiniz? Son izlediğiniz ve beğendiğiniz bir filmi neden beğendiniz, anlatır mısınız?</span>
-                        <button class="timestamp-btn" onclick="addTimestamp(32)">+ Zaman</button>
                     </div>
-                        <div class="timestamps-list" id="timestamps-q32"></div>
                     <div class="connection-note">
                         <strong>Anket Bağlantısı:</strong> S6'da film tercihleri var ama "neden" sorusu yok. Bu soru o boşluğu doldurur.
                     </div>
@@ -1618,9 +1270,7 @@
                     <div class="question-text">
                         <span class="question-number" style="background: #6c3483;">E2</span>
                         <span class="main">Bazen izlediğiniz halde başkalarına pek söylemediğiniz, biraz mahcup olduğunuz filmler veya diziler oluyor mu? Mesela arkadaşlarınızla film konuşurken "bunu da izledim aslında" diye söyleyemediğiniz?</span>
-                        <button class="timestamp-btn" onclick="addTimestamp(33)">+ Zaman</button>
                     </div>
-                        <div class="timestamps-list" id="timestamps-q33"></div>
                     <div class="probe">
                         <ul>
                             <li>Bu içerikleri neden "gizli" tutuyorsunuz? Kimden, neden?</li>
@@ -1636,9 +1286,7 @@
                     <div class="question-text">
                         <span class="question-number" style="background: #6c3483;">E3</span>
                         <span class="main">Hiç bir sinema salonunda veya film etkinliğinde kendinizi "yabancı" veya "yerinde değilmiş" gibi hissettiniz mi? Ya da tam tersi, "burası benim yerim" dediğiniz mekanlar var mı?</span>
-                        <button class="timestamp-btn" onclick="addTimestamp(34)">+ Zaman</button>
                     </div>
-                        <div class="timestamps-list" id="timestamps-q34"></div>
                     <div class="connection-note">
                         <strong>Anket Bağlantısı:</strong> D58'de gittiği mekanlar var ama orada nasıl hissettiği yok.
                     </div>
@@ -1649,9 +1297,7 @@
                     <div class="question-text">
                         <span class="question-number" style="background: #6c3483;">E4</span>
                         <span class="main">Türk filmlerini nasıl değerlendiriyorsunuz? Türk sinemasında beğendiğiniz yönetmenler veya filmler var mı? Türk filmi izlerken farklı bir deneyim yaşıyor musunuz?</span>
-                        <button class="timestamp-btn" onclick="addTimestamp(35)">+ Zaman</button>
                     </div>
-                        <div class="timestamps-list" id="timestamps-q35"></div>
                     <div class="probe">
                         <ul>
                             <li>Yerli vs yabancı film tercihi ve nedenleri</li>
@@ -1670,9 +1316,7 @@
                     <div class="question-text">
                         <span class="question-number" style="background: #6c3483;">E5</span>
                         <span class="main">İzlediğiniz filmleri sosyal medyada paylaşır mısınız? Letterboxd, Instagram, Twitter/X'te film hakkında post atar mısınız? Neden evet/hayır?</span>
-                        <button class="timestamp-btn" onclick="addTimestamp(36)">+ Zaman</button>
                     </div>
-                        <div class="timestamps-list" id="timestamps-q36"></div>
                 </div>
 
                 <!-- EK SORU 6: Kuşaklararası Aktarım -->
@@ -1680,9 +1324,7 @@
                     <div class="question-text">
                         <span class="question-number" style="background: #6c3483;">E6</span>
                         <span class="main">Ailenizden biri size özellikle "bunu izle" diye film önerdi mi? Sinema zevkinizi şekillendiren bir aile üyesi var mı? Yoksa tamamen kendiniz mi keşfettiniz?</span>
-                        <button class="timestamp-btn" onclick="addTimestamp(37)">+ Zaman</button>
                     </div>
-                        <div class="timestamps-list" id="timestamps-q37"></div>
                     <div class="connection-note">
                         <strong>Anket Bağlantısı:</strong> K1'de aile kültürel aktiviteleri var ama aktif aktarım sorulmamış.
                     </div>
@@ -1693,9 +1335,7 @@
                     <div class="question-text">
                         <span class="question-number" style="background: #6c3483;">E7</span>
                         <span class="main">Pandemi öncesi ve sonrası sinema alışkanlıklarınızı karşılaştırır mısınız? Kalıcı olarak değişen bir şey var mı? Sinema salonuna geri dönme motivasyonunuz ne?</span>
-                        <button class="timestamp-btn" onclick="addTimestamp(38)">+ Zaman</button>
                     </div>
-                        <div class="timestamps-list" id="timestamps-q38"></div>
                     <div class="probe">
                         <ul>
                             <li>Ev izleme alışkanlığı kalıcı mı oldu?</li>
@@ -1712,654 +1352,165 @@
                     <label style="font-size: 14px; font-weight: 600; color: #555; text-transform: uppercase; margin-bottom: 8px; display: block;">Genel Notlar / Gözlemler</label>
                     <textarea id="general-notes" placeholder="Görüşme hakkında genel notlar, katılımcı izlenimleri vb." style="width: 100%; min-height: 100px; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-family: inherit; font-size: 14px; resize: vertical;"></textarea>
                 </div>
-
-                <div class="checklist">
-                    <h4>✅ Görüşme Sonu Kontrol Listesi</h4>
-                    <label><input type="checkbox"> Kayıt durduruldu</label>
-                    <label><input type="checkbox"> Tümü indirildi (WAV, TXT, JSON)</label>
-                    <div id="driveUploadStatus" style="margin-top: 8px; font-size: 12px; color: #7f8c8d;"></div>
-                </div>
-
-                <div class="action-buttons" style="margin-top: 18px;">
-                    <button class="btn btn-save" onclick="saveForm()">Kaydet</button>
-                    <button class="btn btn-clear" onclick="clearForm()">Temizle</button>
-                    <button class="btn btn-edit" id="editModeBtn" onclick="toggleEditMode()">✏️ Düzenleme Modu</button>
-                </div>
             </div>
         </div>
-        <div class="footer">
-            TÜBİTAK 1001 - Cumhuriyetin 100. Yılında Sinema Seyircisi Araştırması<br>
-            Derinlemesine Görüşme Soru Formu | 31 Temel + 7 Ek Soru, Düzenlenebilir
-        </div>
+        </div><!-- /cat-4 -->
+
+        <div id="cat-5" class="category-panel">
+                <div class="checklist">
+                    <h4>Görüşme Sonu</h4>
+                    <label><input type="checkbox"> Görüşme tamamlandı</label>
+                </div>
+
+                <!-- ZOOM KAYDI DEŞİFRE BÖLÜMÜ -->
+                <div id="transcribeSection" style="margin-top: 20px; padding: 20px; background: linear-gradient(135deg, #2c3e50, #34495e); border-radius: 12px; color: white;">
+                    <h4 style="margin: 0 0 15px 0; font-size: 16px;">Zoom Kaydını Deşifre Et</h4>
+                    <p style="font-size: 13px; opacity: 0.8; margin-bottom: 15px;">Zoom kayıt dosyanızı seçin, Whisper ile deşifre edip sonucu e-posta ile gönderecek.</p>
+
+                    <div id="fileDropZone" style="border: 2px dashed rgba(255,255,255,0.3); border-radius: 8px; padding: 30px; text-align: center; cursor: pointer; transition: all 0.3s;" onclick="document.getElementById('zoomFileInput').click()">
+                        <div style="font-size: 36px; margin-bottom: 10px;">📁</div>
+                        <div style="font-size: 14px; font-weight: 500;">Dosya seçmek için tıklayın veya sürükleyin</div>
+                        <div style="font-size: 12px; opacity: 0.6; margin-top: 5px;">MP4, M4A, WAV, WebM, MP3, OGG (maks 20 MB)</div>
+                    </div>
+                    <input type="file" id="zoomFileInput" accept="audio/*,video/mp4,video/webm" style="display: none;" onchange="handleFileSelect(this)">
+
+                    <div id="selectedFileInfo" style="display: none; margin-top: 12px; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 6px; font-size: 13px;"></div>
+
+                    <button id="transcribeBtn" onclick="sendForTranscription()" style="display: none; margin-top: 12px; padding: 12px 24px; background: linear-gradient(135deg, #8e44ad, #9b59b6); color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; width: 100%;">
+                        Deşifre Gönder
+                    </button>
+                    <div id="transcribeStatus" style="margin-top: 8px; font-size: 12px; color: #95a5a6;"></div>
+                </div>
+
+        </div><!-- /cat-5 -->
+
     </div>
 
     <script>
-        // SES KAYDI DEĞİŞKENLERİ
-        let mediaRecorder = null;
-        let audioChunks = [];
-        let isRecording = false;
-        let recordingStartTime = null;
-        let timerInterval = null;
-        let recordings = [];
-        let timestamps = {};
-        let backupInterval = null;
-        let lastPdfBlob = null; // Drive yükleme için PDF blob
-        let dbReady = false;
-        let db = null;
+        // GÖRÜŞME DEĞİŞKENLERİ
+        let selectedZoomFile = null;
 
-        // Mikrofon ve sistem sesi stream
-        let micStream = null;
-        let systemStream = null;
-
-        // Raw PCM yakalama (güvenilir WAV dönüşümü için - WebM decode atlanır)
-        let pcmChunks = [];
-        let pcmSampleRate = 0;
-        let pcmCaptureNode = null;
-        let pcmAudioContext = null;
-
-        // CANLI DEŞİFRE DEĞİŞKENLERİ
-        let speechRecognition = null;
-        let transcriptData = {
-            meta: {},
-            transkript: [],
-            markerlar: [],
-            sorular: []
-        };
-        let transcriptSegmentId = 0;
-        let currentActiveQuestion = null;
-        let transcriptPanelMinimized = false;
-
-        // IndexedDB kurulumu (büyük ses dosyaları için)
-        const dbRequest = indexedDB.open('DerinlemesineGorusmeDB', 1);
-        dbRequest.onerror = () => console.warn('IndexedDB açılamadı, yedekleme devre dışı');
-        dbRequest.onsuccess = (e) => {
-            db = e.target.result;
-            dbReady = true;
-            console.log('IndexedDB hazır - otomatik yedekleme aktif');
-            checkForRecovery(); // Kurtarılacak kayıt var mı kontrol et
-        };
-        dbRequest.onupgradeneeded = (e) => {
-            const database = e.target.result;
-            if (!database.objectStoreNames.contains('audioBackups')) {
-                database.createObjectStore('audioBackups', { keyPath: 'id' });
-            }
-        };
-
-        // Ses kaydını IndexedDB'ye yedekle
-        async function backupAudioToIndexedDB() {
-            if (!dbReady || !db || audioChunks.length === 0) return;
-
-            try {
-                const backupBlob = new Blob(audioChunks, { type: 'audio/webm' });
-                const transaction = db.transaction(['audioBackups'], 'readwrite');
-                const store = transaction.objectStore('audioBackups');
-
-                const backupData = {
-                    id: 'currentRecording',
-                    blob: backupBlob,
-                    timestamp: new Date().toISOString(),
-                    duration: document.getElementById('recordingTimer').textContent,
-                    participantName: document.getElementById('participant-name').value,
-                    focusGroup: document.getElementById('focus-group').value,
-                    markers: JSON.parse(JSON.stringify(timestamps))
-                };
-
-                store.put(backupData);
-
-                transaction.oncomplete = () => {
-                    showBackupNotification();
-                    console.log('Otomatik yedekleme tamamlandı:', backupData.duration);
-                };
-            } catch (err) {
-                console.error('Yedekleme hatası:', err);
-            }
+        // KATEGORİ GEÇİŞİ
+        function showCategory(catId, navEl) {
+            // Tüm panelleri gizle
+            document.querySelectorAll('.category-panel').forEach(p => p.classList.remove('active'));
+            // Hedefi göster
+            const target = document.getElementById(catId);
+            if (target) target.classList.add('active');
+            // Nav aktifliği
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            if (navEl) navEl.classList.add('active');
+            // Sayfayı yukarı kaydır
+            window.scrollTo(0, 0);
         }
 
-        // Yedekleme bildirimi göster
-        function showBackupNotification() {
-            const notification = document.createElement('div');
-            notification.style.cssText = `
-                position: fixed;
-                bottom: 20px;
-                left: 20px;
-                background: #27ae60;
-                color: white;
-                padding: 10px 20px;
-                border-radius: 8px;
-                font-size: 13px;
-                z-index: 10000;
-                animation: fadeOut 3s forwards;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            `;
-            notification.innerHTML = '💾 Otomatik yedekleme yapıldı';
-            document.body.appendChild(notification);
-            setTimeout(() => notification.remove(), 3000);
-        }
-
-        // Kurtarılacak kayıt var mı kontrol et
-        function checkForRecovery() {
-            if (!dbReady || !db) return;
-
-            const transaction = db.transaction(['audioBackups'], 'readonly');
-            const store = transaction.objectStore('audioBackups');
-            const request = store.get('currentRecording');
-
-            request.onsuccess = (e) => {
-                const backup = e.target.result;
-                if (backup && backup.blob && backup.blob.size > 0) {
-                    const backupTime = new Date(backup.timestamp).toLocaleString('tr-TR');
-                    if (confirm(`Kurtarılabilir bir kayıt bulundu!\n\nTarih: ${backupTime}\nSüre: ${backup.duration}\nKatılımcı: ${backup.participantName || 'Belirtilmedi'}\n\nBu kaydı kurtarmak ister misiniz?`)) {
-                        recoverBackup(backup);
-                    } else {
-                        clearBackup();
-                    }
-                }
-            };
-        }
-
-        // Yedeği kurtar
-        function recoverBackup(backup) {
-            recordings.push({
-                blob: backup.blob,
-                mimeType: 'audio/webm',
-                name: `KURTARILAN_${backup.focusGroup || 'G0'}_${backup.participantName || 'katilimci'}_${backup.timestamp.slice(0,10)}.webm`,
-                duration: backup.duration,
-                size: (backup.blob.size / 1024 / 1024).toFixed(2) + ' MB'
-            });
-
-            if (backup.markers) {
-                timestamps = backup.markers;
-            }
-
-            updateRecordingsList();
-            clearBackup();
-            alert('Kayıt başarıyla kurtarıldı! "Kaydedilen Ses Dosyaları" bölümünden indirebilirsiniz.');
-        }
-
-        // Yedeği temizle
-        function clearBackup() {
-            if (!dbReady || !db) return;
-            const transaction = db.transaction(['audioBackups'], 'readwrite');
-            const store = transaction.objectStore('audioBackups');
-            store.delete('currentRecording');
-        }
-
-        // Otomatik yedeklemeyi başlat (her 5 dakikada bir)
-        function startAutoBackup() {
-            if (backupInterval) clearInterval(backupInterval);
-            backupInterval = setInterval(() => {
-                if (isRecording) {
-                    backupAudioToIndexedDB();
-                    saveFormSilent(); // Sessiz kaydet (alert yok, deşifreyi durdurmaz)
-                }
-            }, 5 * 60 * 1000); // 5 dakika
-            console.log('Otomatik yedekleme başlatıldı (5 dk aralıklarla)');
-        }
-
-        // Otomatik yedeklemeyi durdur
-        function stopAutoBackup() {
-            if (backupInterval) {
-                clearInterval(backupInterval);
-                backupInterval = null;
-            }
-        }
-
-        // Sayfa yüklendiğinde timestamps'ı başlat
-        for (let i = 1; i <= 38; i++) {
-            timestamps['q' + i] = [];
-        }
-        timestamps['general'] = [];
-
-        // Son eklenen marker için hangi soru aktif
-        let activeQuestionForMarker = 1;
-
-        // KLAVYE KISAYOLLARI (Sadeleştirilmiş)
+        // KLAVYE KISAYOLLARI
         document.addEventListener('keydown', function(e) {
-            // Eğer bir input/textarea içindeyse kısayolları devre dışı bırak
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
                 return;
             }
 
-            // 1 tuşu - Kayıt başlat (kayıt yokken)
-            if (e.key === '1' && !isRecording) {
-                e.preventDefault();
-                toggleRecording();
-            }
-
-            // 2 tuşu - Kayıt durdur (kayıt aktifken)
-            if (e.key === '2' && isRecording) {
-                e.preventDefault();
-                toggleRecording();
-            }
-
-            // 3 tuşu - Marker ekle (kayıt aktifken)
-            if (e.key === '3' && isRecording) {
-                e.preventDefault();
-                addQuickMarker();
-            }
-
-            // 4 tuşu - Kaydet (sessiz)
-            if (e.key === '4') {
+            // 1 tuşu - Kaydet (sessiz)
+            if (e.key === '1') {
                 e.preventDefault();
                 saveFormSilent();
             }
 
-            // 5 tuşu - Düzenleme modu
-            if (e.key === '5') {
+            // 2 tuşu - Düzenleme modu
+            if (e.key === '2') {
                 e.preventDefault();
                 toggleEditMode();
             }
         });
 
-        // Hızlı marker ekle (genel kategoriye)
-        function addQuickMarker() {
-            const currentTime = document.getElementById('recordingTimer').textContent;
-            timestamps['general'].push({
-                time: currentTime,
-                note: 'Marker_' + (timestamps['general'].length + 1)
-            });
-            showMarkerFeedback('Genel');
-            console.log('Hızlı marker eklendi:', currentTime);
+        // DOSYA SEÇME VE DRAG & DROP
+
+        function handleFileSelect(input) {
+            const file = input.files[0];
+            if (!file) return;
+            processSelectedFile(file);
         }
 
-        // Marker eklendi bildirimi
-        function showMarkerFeedback(label) {
-            const feedback = document.createElement('div');
-            feedback.style.cssText = `
-                position: fixed;
-                top: 60px;
-                right: 10px;
-                background: #27ae60;
-                color: white;
-                padding: 10px 20px;
-                border-radius: 20px;
-                font-size: 14px;
-                font-weight: 500;
-                z-index: 10000;
-                animation: fadeOut 1.5s forwards;
-            `;
-            feedback.textContent = '✓ ' + label + ' - Marker eklendi';
-            document.body.appendChild(feedback);
-            setTimeout(() => feedback.remove(), 1500);
-        }
-
-        // CSS animasyonu ekle
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes fadeOut {
-                0% { opacity: 1; transform: translateY(0); }
-                70% { opacity: 1; transform: translateY(0); }
-                100% { opacity: 0; transform: translateY(-10px); }
+        function processSelectedFile(file) {
+            const sizeMB = file.size / 1024 / 1024;
+            if (sizeMB > 500) {
+                alert('Dosya cok buyuk (' + sizeMB.toFixed(1) + ' MB). Maks 500 MB desteklenir.');
+                return;
             }
-        `;
-        document.head.appendChild(style);
 
-        // SES KAYDI FONKSİYONLARI
+            selectedZoomFile = file;
+            const infoEl = document.getElementById('selectedFileInfo');
+            infoEl.style.display = 'block';
+            infoEl.innerHTML = '<strong>' + file.name + '</strong> (' + sizeMB.toFixed(1) + ' MB)' +
+                (sizeMB > 24 ? ' — <span style="color: #e67e22;">Otomatik sikistirilacak</span>' : '');
 
-        async function toggleRecording() {
-            if (!isRecording) {
-                try {
-                    console.log('Mikrofon erişimi isteniyor...');
-                    micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    console.log('Mikrofon erişimi sağlandı:', micStream.getAudioTracks()[0].label);
+            document.getElementById('transcribeBtn').style.display = 'block';
+        }
 
-                    // Sistem sesi (Zoom) yakalama
-                    let recordStream = micStream; // Varsayılan: sadece mikrofon
-                    const wantSystemAudio = document.getElementById('systemAudioCheckbox').checked;
+        // SES SIKISTIRMA: 16kHz mono MP3 (lamejs)
+        async function compressToMP3(file) {
+            const arrayBuffer = await file.arrayBuffer();
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+            audioCtx.close();
 
-                    if (wantSystemAudio) {
-                        try {
-                            // Kullanıcıya hatırlatma göster
-                            alert('Şimdi ekran paylaşım diyaloğu açılacak.\n\n1) "Tüm Ekran" sekmesini seçin\n2) Ekranınızı seçin\n3) ALTTAKİ "Sistem sesini de paylaş" KUTUSUNU İŞARETLEYİN\n4) Paylaş butonuna basın');
+            const targetRate = 16000;
+            const totalSamples = Math.ceil(audioBuffer.duration * targetRate);
+            const offlineCtx = new OfflineAudioContext(1, totalSamples, targetRate);
+            const source = offlineCtx.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(offlineCtx.destination);
+            source.start();
+            const resampled = await offlineCtx.startRendering();
+            const samples = resampled.getChannelData(0);
 
-                            systemStream = await navigator.mediaDevices.getDisplayMedia({
-                                video: true,
-                                audio: true,
-                                systemAudio: 'include'
-                            });
-
-                            // Önce audio track kontrol et (video durdurmadan önce)
-                            const audioTracks = systemStream.getAudioTracks();
-                            console.log('getDisplayMedia sonucu - Video tracks:', systemStream.getVideoTracks().length, 'Audio tracks:', audioTracks.length);
-
-                            if (audioTracks.length > 0) {
-                                console.log('Sistem sesi yakalandı:', audioTracks[0].label, audioTracks[0].getSettings());
-
-                                // Video track'i durdur (sadece ses lazım)
-                                systemStream.getVideoTracks().forEach(t => t.stop());
-
-                                // Mikrofon + sistem sesini AudioContext ile birleştir
-                                const mixCtx = new (window.AudioContext || window.webkitAudioContext)();
-                                const micSource = mixCtx.createMediaStreamSource(micStream);
-                                const sysSource = mixCtx.createMediaStreamSource(new MediaStream(audioTracks));
-                                const dest = mixCtx.createMediaStreamDestination();
-
-                                micSource.connect(dest);
-                                sysSource.connect(dest);
-
-                                recordStream = dest.stream;
-                                console.log('Mikrofon + Sistem sesi birleştirildi');
-                            } else {
-                                systemStream.getTracks().forEach(t => t.stop());
-                                systemStream = null;
-                                alert('Sistem sesi yakalanamadı!\n\nDiyalogda "Sistem sesini de paylaş" kutusunu işaretlemeniz gerekiyor.\n\nSadece mikrofon ile kayıt yapılacak.');
-                            }
-                        } catch (sysErr) {
-                            console.warn('Sistem sesi alınamadı:', sysErr.message);
-                            systemStream = null;
-                        }
-                    }
-
-                    // MediaRecorder oluştur - desteklenen format
-                    let mimeType = 'audio/webm';
-                    if (!MediaRecorder.isTypeSupported('audio/webm')) {
-                        mimeType = 'audio/ogg';
-                    }
-                    if (!MediaRecorder.isTypeSupported(mimeType)) {
-                        mimeType = '';
-                    }
-
-                    const options = mimeType ? { mimeType: mimeType } : {};
-                    mediaRecorder = new MediaRecorder(recordStream, options);
-                    audioChunks = [];
-
-                    console.log('MediaRecorder oluşturuldu, format:', mediaRecorder.mimeType);
-
-                    mediaRecorder.ondataavailable = (event) => {
-                        if (event.data.size > 0) {
-                            audioChunks.push(event.data);
-                        }
-                    };
-
-                    mediaRecorder.onstop = () => {
-                        console.log('Kayıt durduruluyor, toplam chunk:', audioChunks.length);
-
-                        const audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
-                        const extension = (mediaRecorder.mimeType || '').includes('ogg') ? 'ogg' : 'webm';
-
-                        const participantName = document.getElementById('participant-name').value || 'katilimci';
-                        const focusGroup = document.getElementById('focus-group').value || 'G0';
-                        const dateStr = new Date().toISOString().slice(0, 10);
-
-                        console.log('Blob oluşturuldu:', {
-                            size: audioBlob.size,
-                            type: audioBlob.type,
-                            chunks: audioChunks.length
-                        });
-
-                        if (audioBlob.size === 0) {
-                            alert('Uyarı: Ses kaydı boş! Mikrofon düzgün çalışmıyor olabilir.');
-                            return;
-                        }
-
-                        recordings.push({
-                            blob: audioBlob,
-                            mimeType: mediaRecorder.mimeType,
-                            name: `Derinlemesine_${focusGroup}_${participantName}_${dateStr}.${extension}`,
-                            duration: document.getElementById('recordingTimer').textContent,
-                            size: (audioBlob.size / 1024 / 1024).toFixed(2) + ' MB'
-                        });
-
-                        console.log('Kayıt tamamlandı:', {
-                            mimeType: mediaRecorder.mimeType,
-                            size: audioBlob.size,
-                            duration: document.getElementById('recordingTimer').textContent
-                        });
-
-                        updateRecordingsList();
-                        micStream.getTracks().forEach(track => track.stop());
-                        micStream = null;
-                        if (systemStream) {
-                            systemStream.getTracks().forEach(track => track.stop());
-                            systemStream = null;
-                        }
-                    };
-
-                    mediaRecorder.onerror = (event) => {
-                        console.error('MediaRecorder hatası:', event.error);
-                        alert('Kayıt hatası: ' + event.error.message);
-                    };
-
-                    // Raw PCM yakalama başlat (WAV dönüşümü için - ScriptProcessorNode)
-                    try {
-                        pcmChunks = [];
-                        // Ses kaynağının gerçek sample rate'ini tespit et
-                        const audioTrack = recordStream.getAudioTracks()[0];
-                        const trackSettings = audioTrack.getSettings ? audioTrack.getSettings() : {};
-                        const targetSampleRate = trackSettings.sampleRate || 48000;
-                        pcmAudioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: targetSampleRate });
-                        pcmSampleRate = pcmAudioContext.sampleRate;
-                        console.log('PCM AudioContext sampleRate:', pcmSampleRate, '(track:', targetSampleRate, ')');
-                        const pcmSource = pcmAudioContext.createMediaStreamSource(recordStream);
-
-                        // ScriptProcessorNode ile PCM yakalama (file:// uyumlu)
-                        const bufferSize = 4096;
-                        pcmCaptureNode = pcmAudioContext.createScriptProcessor(bufferSize, 1, 1);
-                        pcmCaptureNode.onaudioprocess = function(e) {
-                            const inputData = e.inputBuffer.getChannelData(0);
-                            pcmChunks.push(new Float32Array(inputData));
-                        };
-                        pcmSource.connect(pcmCaptureNode);
-                        pcmCaptureNode.connect(pcmAudioContext.destination);
-                        console.log('PCM yakalama başladı (ScriptProcessor), sampleRate:', pcmSampleRate);
-                    } catch (pcmErr) {
-                        console.warn('PCM yakalama başlatılamadı, fallback kullanılacak:', pcmErr);
-                    }
-
-                    // Her saniye veri topla
-                    mediaRecorder.start(1000);
-                    isRecording = true;
-                    recordingStartTime = Date.now();
-                    startTimer();
-
-                    console.log('Kayıt başladı!');
-
-                    // Otomatik yedeklemeyi başlat
-                    startAutoBackup();
-
-                    document.getElementById('recordBtn').classList.add('recording');
-                    document.getElementById('recordBtnText').textContent = 'Kaydı Durdur';
-                    document.getElementById('recDot').classList.add('active');
-                    document.getElementById('floatingRecorder').classList.add('active');
-
-                    // CANLI DEŞİFRE BAŞLAT
-                    initTranscriptData();
-                    document.getElementById('transcriptPanel').classList.add('active');
-                    document.getElementById('transcriptBody').innerHTML = '<div style="color: #888; font-style: italic; font-size: 13px;">Konuşma tanıma başlatılıyor...</div>';
-                    startSpeechRecognition();
-
-                } catch (err) {
-                    console.error('Mikrofon hatası:', err);
-                    if (micStream) {
-                        micStream.getTracks().forEach(track => track.stop());
-                        micStream = null;
-                    }
-                    alert('Mikrofon erişimi reddedildi veya mikrofon bulunamadı.\n\nHata: ' + err.message + '\n\nZoom kullanıyorsanız, Zoom\'un kendi kayıt özelliğini kullanabilirsiniz.');
-                }
-            } else {
-                mediaRecorder.stop();
-                isRecording = false;
-                stopTimer();
-
-                // PCM yakalamayı durdur (veriler pcmChunks'ta kalır, indirme için)
-                if (pcmCaptureNode) {
-                    pcmCaptureNode.disconnect();
-                    pcmCaptureNode = null;
-                }
-                if (pcmAudioContext) {
-                    pcmAudioContext.close();
-                    pcmAudioContext = null;
-                }
-                console.log('PCM yakalama durduruldu, chunk sayısı:', pcmChunks.length);
-
-                // Otomatik yedeklemeyi durdur ve yedeği temizle
-                stopAutoBackup();
-                clearBackup();
-
-                document.getElementById('recordBtn').classList.remove('recording');
-                document.getElementById('recordBtnText').textContent = 'Yeni Kayıt';
-                document.getElementById('recDot').classList.remove('active');
-                document.getElementById('floatingRecorder').classList.remove('active');
-
-                // CANLI DEŞİFREYİ DURDUR
-                stopSpeechRecognition();
-                // "Tümünü İndir" butonunu göster
-                const dlBtn = document.getElementById('downloadAllBtn');
-                if (dlBtn) dlBtn.style.display = 'inline-block';
-                // Meta süresini güncelle
-                if (transcriptData.meta) {
-                    transcriptData.meta.sure_saniye = Math.round((Date.now() - (recordingStartTime || Date.now())) / 1000);
-                    transcriptData.meta.bitis_zamani = new Date().toISOString();
-                }
-
-                // OTOMATİK TÜMÜNÜ İNDİR (WAV + TXT + JSON + PDF)
-                setTimeout(() => {
-                    downloadAllOnStop();
-                }, 1500);
+            // Float32 -> Int16
+            const int16 = new Int16Array(samples.length);
+            for (let i = 0; i < samples.length; i++) {
+                let s = Math.max(-1, Math.min(1, samples[i]));
+                int16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
             }
+
+            // MP3 encode (32kbps mono - konusma icin yeterli)
+            const mp3enc = new lamejs.Mp3Encoder(1, targetRate, 32);
+            const mp3Data = [];
+            const blockSize = 1152;
+            for (let i = 0; i < int16.length; i += blockSize) {
+                const chunk = int16.subarray(i, i + blockSize);
+                const mp3buf = mp3enc.encodeBuffer(chunk);
+                if (mp3buf.length > 0) mp3Data.push(mp3buf);
+            }
+            const last = mp3enc.flush();
+            if (last.length > 0) mp3Data.push(last);
+
+            const blob = new Blob(mp3Data, { type: 'audio/mpeg' });
+            return blob;
         }
 
-        // PDF Oluşturma Fonksiyonu
-        function generatePDF() {
-            const container = document.querySelector('.container');
-            const participantName = document.getElementById('participant-name').value || 'katilimci';
-            const focusGroup = document.getElementById('focus-group').value || 'G0';
-            const dateStr = new Date().toISOString().slice(0, 10);
-            const fileName = `Gorusme_${focusGroup}_${participantName.replace(/\s+/g, '_')}_${dateStr}.pdf`;
-
-            // Geçici olarak kayıt bölümünü ve transcript panelini gizle
-            const recSection = document.querySelector('.recording-section');
-            const transcriptPanel = document.getElementById('transcriptPanel');
-            const floatingRec = document.getElementById('floatingRecorder');
-            const actionBtns = document.querySelectorAll('.action-buttons');
-            const editBanner = document.getElementById('editModeBanner');
-
-            const origDisplay = {
-                rec: recSection ? recSection.style.display : '',
-                tp: transcriptPanel ? transcriptPanel.style.display : '',
-                fr: floatingRec ? floatingRec.style.display : '',
-                eb: editBanner ? editBanner.style.display : ''
-            };
-
-            if (recSection) recSection.style.display = 'none';
-            if (transcriptPanel) transcriptPanel.style.display = 'none';
-            if (floatingRec) floatingRec.style.display = 'none';
-            if (editBanner) editBanner.style.display = 'none';
-            actionBtns.forEach(el => el.style.display = 'none');
-
-            html2canvas(container, {
-                scale: 2,
-                useCORS: true,
-                backgroundColor: '#f5f5f5',
-                logging: false,
-                windowWidth: 900
-            }).then(function(canvas) {
-                var jsPDF = window.jspdf.jsPDF;
-                var pdf = new jsPDF('p', 'mm', 'a4');
-                var pageW = pdf.internal.pageSize.getWidth();
-                var pageH = pdf.internal.pageSize.getHeight();
-                var margin = 10;
-                var imgW = pageW - margin * 2;
-                var imgH = (canvas.height * imgW) / canvas.width;
-
-                if (imgH <= pageH - margin * 2) {
-                    pdf.addImage(canvas.toDataURL('image/jpeg', 0.85), 'JPEG', margin, margin, imgW, imgH);
-                } else {
-                    var pos = 0;
-                    var page = 0;
-                    while (pos < imgH) {
-                        if (page > 0) pdf.addPage();
-                        var usable = pageH - margin * 2;
-                        var srcY = (pos / imgH) * canvas.height;
-                        var srcH = Math.min((usable / imgH) * canvas.height, canvas.height - srcY);
-                        var tmpC = document.createElement('canvas');
-                        tmpC.width = canvas.width;
-                        tmpC.height = srcH;
-                        tmpC.getContext('2d').drawImage(canvas, 0, srcY, canvas.width, srcH, 0, 0, canvas.width, srcH);
-                        var drawH = (srcH * imgW) / canvas.width;
-                        pdf.addImage(tmpC.toDataURL('image/jpeg', 0.85), 'JPEG', margin, margin, imgW, drawH);
-                        pos += usable;
-                        page++;
+        // Drag & drop
+        document.addEventListener('DOMContentLoaded', function() {
+            const dropZone = document.getElementById('fileDropZone');
+            if (dropZone) {
+                dropZone.addEventListener('dragover', function(e) {
+                    e.preventDefault();
+                    this.style.borderColor = '#3498db';
+                    this.style.background = 'rgba(52,152,219,0.1)';
+                });
+                dropZone.addEventListener('dragleave', function(e) {
+                    e.preventDefault();
+                    this.style.borderColor = 'rgba(255,255,255,0.3)';
+                    this.style.background = 'transparent';
+                });
+                dropZone.addEventListener('drop', function(e) {
+                    e.preventDefault();
+                    this.style.borderColor = 'rgba(255,255,255,0.3)';
+                    this.style.background = 'transparent';
+                    if (e.dataTransfer.files.length > 0) {
+                        processSelectedFile(e.dataTransfer.files[0]);
                     }
-                }
-
-                lastPdfBlob = pdf.output('blob');
-                pdf.save(fileName);
-                console.log('PDF otomatik indirildi:', fileName);
-
-                // Gizlenen elemanları geri getir
-                if (recSection) recSection.style.display = origDisplay.rec;
-                if (transcriptPanel) transcriptPanel.style.display = origDisplay.tp;
-                if (floatingRec) floatingRec.style.display = origDisplay.fr;
-                if (editBanner) editBanner.style.display = origDisplay.eb;
-                actionBtns.forEach(el => el.style.display = '');
-
-            }).catch(function(err) {
-                console.error('PDF oluşturma hatası:', err);
-                // Gizlenen elemanları geri getir
-                if (recSection) recSection.style.display = origDisplay.rec;
-                if (transcriptPanel) transcriptPanel.style.display = origDisplay.tp;
-                if (floatingRec) floatingRec.style.display = origDisplay.fr;
-                if (editBanner) editBanner.style.display = origDisplay.eb;
-                actionBtns.forEach(el => el.style.display = '');
-            });
-        }
-
-        // Kayıt durdurulunca hepsini sırayla indir
-        function downloadAllOnStop() {
-            if (recordings.length === 0) return;
-            const idx = recordings.length - 1;
-
-            // 1. WAV indir (0s)
-            console.log('=== OTOMATİK İNDİRME BAŞLIYOR ===');
-            downloadRecording(idx);
-
-            // 2. TXT indir (2s)
-            setTimeout(() => {
-                if (transcriptData.transkript.length > 0) {
-                    downloadTranscriptTXT();
-                }
-            }, 2000);
-
-            // 3. JSON indir (4s)
-            setTimeout(() => {
-                if (transcriptData.transkript.length > 0) {
-                    // Marker'ları JSON'a ekle
-                    transcriptData.markerlar = [];
-                    if (timestamps['general']) {
-                        timestamps['general'].forEach(ts => {
-                            transcriptData.markerlar.push({ zaman: ts.time, etiket: ts.note || 'Marker' });
-                        });
-                    }
-                    for (let i = 1; i <= 38; i++) {
-                        const key = 'q' + i;
-                        if (timestamps[key] && timestamps[key].length > 0) {
-                            timestamps[key].forEach(ts => {
-                                const timeStr = typeof ts === 'string' ? ts : ts.time;
-                                const noteStr = typeof ts === 'string' ? '' : (ts.note || '');
-                                transcriptData.markerlar.push({ zaman: timeStr, etiket: 'S' + i + '_' + (noteStr || 'Marker') });
-                            });
-                        }
-                    }
-                    downloadTranscriptJSON();
-                }
-            }, 4000);
-
-            // 4. PDF indir (6s)
-            setTimeout(() => {
-                generatePDF();
-            }, 6000);
-
-            // 5. Drive'a yükle (10s - PDF hazır olsun diye bekle)
-            setTimeout(() => {
-                uploadToDrive();
-            }, 10000);
-        }
-
-        // =============================================
-        // GOOGLE DRIVE YÜKLEME
-        // =============================================
-        const DRIVE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyQ9U0BLadvrmmreYRa6sq4qc_vtlRpCamKiviQ9EbTzaBUBeJtQ5JuJFeiS96-0c4-5w/exec';
+                });
+            }
+        });
 
         function blobToBase64(blob) {
             return new Promise((resolve, reject) => {
@@ -2370,1348 +1521,89 @@
             });
         }
 
-        async function uploadToDrive() {
-            console.log('=== DRIVE YÜKLEME BAŞLIYOR ===');
-            const participantName = document.getElementById('participant-name').value || 'katilimci';
-            const focusGroup = document.getElementById('focus-group').value || 'G0';
-            const dateStr = new Date().toISOString().slice(0, 10);
-            const folderName = `${focusGroup}_${participantName.replace(/\s+/g, '_')}_${dateStr}`;
-            console.log('Klasör adı:', folderName);
+        // =============================================
+        // WHISPER DEŞİFRE SERVİSİ
+        // =============================================
+        const TRANSCRIBE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz8xTOpz0xAKZu5fyNhIh7jus6oWG48sVgFDMqUjjw-5TylV6Jmys3bBcUykv8FYQKL8Q/exec';
 
-            const statusEl = document.getElementById('driveUploadStatus');
-            if (statusEl) {
-                statusEl.textContent = '⏳ Drive\'a yükleniyor...';
-                statusEl.style.color = '#e67e22';
+        async function sendForTranscription() {
+            const btn = document.getElementById('transcribeBtn');
+            const statusEl = document.getElementById('transcribeStatus');
+
+            if (!selectedZoomFile) {
+                alert('Lutfen once bir dosya secin.');
+                return;
             }
 
-            var filesToUpload = [];
+            btn.disabled = true;
+            btn.innerHTML = 'Desifre ediliyor...';
+            btn.style.background = '#e67e22';
+
+            const participantName = document.getElementById('participant-name').value || 'katilimci';
+            const focusGroup = document.getElementById('focus-group').value || 'G0';
+            const interviewDate = document.getElementById('interview-date').value || new Date().toISOString().slice(0, 10);
+            const sizeMB = selectedZoomFile.size / 1024 / 1024;
 
             try {
-                // 1. WebM ses dosyası (küçük boyut)
-                if (recordings.length > 0) {
-                    const rec = recordings[recordings.length - 1];
-                    const audioBase64 = await blobToBase64(rec.blob);
-                    filesToUpload.push({
-                        fileName: rec.name,
-                        mimeType: rec.blob.type || 'audio/webm',
-                        data: audioBase64
-                    });
+                let fileToSend;
+                let mimeType;
+
+                if (sizeMB > 24) {
+                    // Buyuk dosya: MP3'e sikistir
+                    statusEl.textContent = 'Ses dosyasi MP3 olarak sikistiriliyor...';
+                    statusEl.style.color = '#e67e22';
+                    fileToSend = await compressToMP3(selectedZoomFile);
+                    mimeType = 'audio/mpeg';
+                    const compressedMB = (fileToSend.size / 1024 / 1024).toFixed(1);
+                    console.log('MP3 sikistirildi: ' + sizeMB.toFixed(1) + ' MB -> ' + compressedMB + ' MB');
+                    statusEl.textContent = 'Sikistirildi: ' + sizeMB.toFixed(1) + ' MB → ' + compressedMB + ' MB MP3';
+                } else {
+                    // Kucuk dosya: direkt gonder
+                    fileToSend = selectedZoomFile;
+                    mimeType = selectedZoomFile.type || 'audio/webm';
                 }
 
-                // 2. TXT deşifre
-                if (transcriptData.transkript.length > 0) {
-                    const txtContent = generateTXTContent();
-                    const txtBlob = new Blob([txtContent], { type: 'text/plain;charset=utf-8' });
-                    const txtBase64 = await blobToBase64(txtBlob);
-                    filesToUpload.push({
-                        fileName: `Desifre_${participantName.replace(/\s+/g, '_')}_${dateStr}.txt`,
-                        mimeType: 'text/plain',
-                        data: txtBase64
-                    });
-                }
+                statusEl.textContent = 'Ses dosyasi gonderiliyor...';
+                statusEl.style.color = '#e67e22';
 
-                // 3. JSON deşifre
-                if (transcriptData.transkript.length > 0) {
-                    const jsonStr = JSON.stringify(transcriptData, null, 2);
-                    const jsonBlob = new Blob([jsonStr], { type: 'application/json;charset=utf-8' });
-                    const jsonBase64 = await blobToBase64(jsonBlob);
-                    filesToUpload.push({
-                        fileName: `Desifre_${participantName.replace(/\s+/g, '_')}_${dateStr}.json`,
-                        mimeType: 'application/json',
-                        data: jsonBase64
-                    });
-                }
+                const audioBase64 = await blobToBase64(fileToSend);
+                console.log('Desifre gonderiliyor:', {
+                    dosya: selectedZoomFile.name,
+                    orijinalBoyut: sizeMB.toFixed(1) + ' MB',
+                    gonderimBoyut: (fileToSend.size / 1024 / 1024).toFixed(1) + ' MB',
+                    mimeType: mimeType,
+                    katilimci: participantName
+                });
 
-                // 4. PDF
-                if (lastPdfBlob) {
-                    const pdfBase64 = await blobToBase64(lastPdfBlob);
-                    filesToUpload.push({
-                        fileName: `Gorusme_${focusGroup}_${participantName.replace(/\s+/g, '_')}_${dateStr}.pdf`,
-                        mimeType: 'application/pdf',
-                        data: pdfBase64
-                    });
-                }
-
-                if (filesToUpload.length === 0) {
-                    console.log('Drive\'a yüklenecek dosya yok');
-                    if (statusEl) {
-                        statusEl.textContent = '⚠️ Yüklenecek dosya yok';
-                        statusEl.style.color = '#e74c3c';
-                    }
-                    return;
-                }
-
-                console.log('Drive\'a yükleniyor:', filesToUpload.length, 'dosya, klasör:', folderName);
-
-                await fetch(DRIVE_SCRIPT_URL, {
+                await fetch(TRANSCRIBE_SCRIPT_URL, {
                     method: 'POST',
                     mode: 'no-cors',
                     headers: { 'Content-Type': 'text/plain' },
                     body: JSON.stringify({
-                        folderName: folderName,
-                        files: filesToUpload
+                        action: 'transcribe',
+                        audioData: audioBase64,
+                        mimeType: mimeType,
+                        participantName: participantName,
+                        focusGroup: focusGroup,
+                        interviewDate: interviewDate
                     })
                 });
 
-                console.log('Drive yükleme isteği gönderildi');
-                if (statusEl) {
-                    statusEl.innerHTML = '✅ Drive\'a yüklendi — <a href="https://drive.google.com" target="_blank" style="color:#1abc9c;">Drive\'ı aç</a>';
-                    statusEl.style.color = '#27ae60';
-                }
+                btn.innerHTML = 'Desifre Gonderildi';
+                btn.style.background = '#27ae60';
+                statusEl.innerHTML = 'Desifre istegi gonderildi — Sonuc e-posta ile gelecek ve Drive\'a kaydedilecek';
+                statusEl.style.color = '#27ae60';
 
             } catch (error) {
-                console.error('Drive yükleme hatası:', error);
-                if (statusEl) {
-                    statusEl.textContent = '❌ Drive bağlantı hatası';
-                    statusEl.style.color = '#e74c3c';
-                }
+                console.error('Desifre gonderme hatasi:', error);
+                btn.innerHTML = 'Tekrar Dene';
+                btn.style.background = '#e74c3c';
+                btn.disabled = false;
+                statusEl.textContent = 'Gonderme hatasi: ' + error.message;
+                statusEl.style.color = '#e74c3c';
             }
         }
 
-        // TXT içeriği oluştur (indirme ve Drive yükleme için ortak)
-        function generateTXTContent() {
-            const m = transcriptData.meta;
-            let txt = '';
-            txt += '============================================================\n';
-            txt += '         DEŞİFRE METNİ - DERİNLEMESİNE GÖRÜŞME\n';
-            txt += '         TÜBİTAK 1001 Sinema Seyircisi Araştırması\n';
-            txt += '============================================================\n\n';
-            txt += 'Katılımcı     : ' + (m.katilimci || '-') + '\n';
-            txt += 'Görüşmeci     : ' + (m.gorusmeci || '-') + '\n';
-            txt += 'Odak Grup     : ' + (m.odak_grup || '-') + '\n';
-            txt += 'Tarih         : ' + (m.tarih || '-') + '\n';
-            txt += 'Saat          : ' + (m.saat || '-') + '\n';
-            txt += 'Toplam Süre   : ' + formatDuration(m.sure_saniye || 0) + '\n';
-            txt += 'Ses Dosyası   : ' + (m.ses_dosyasi || '-') + '\n';
-            txt += 'Sistem Sesi   : ' + (m.sistem_sesi ? 'Evet (Zoom)' : 'Hayır') + '\n';
-            txt += 'Toplam Segment: ' + transcriptData.transkript.length + '\n';
-            txt += '\n------------------------------------------------------------\n';
-            txt += '  GÖRÜŞME METNİ\n';
-            txt += '------------------------------------------------------------\n\n';
-
-            let lastQuestion = null;
-            transcriptData.transkript.forEach((seg) => {
-                if (seg.soru_no && seg.soru_no !== lastQuestion) {
-                    txt += '\n  --- Soru ' + seg.soru_no + ' ---\n\n';
-                    lastQuestion = seg.soru_no;
-                }
-                txt += '[' + seg.zaman + ']  ' + seg.metin + '\n';
-            });
-
-            if (transcriptData.markerlar && transcriptData.markerlar.length > 0) {
-                txt += '\n------------------------------------------------------------\n';
-                txt += '  ZAMAN DAMGALARI / MARKER\'LAR\n';
-                txt += '------------------------------------------------------------\n\n';
-                transcriptData.markerlar.forEach((mk) => {
-                    txt += '[' + mk.zaman + ']  ' + mk.etiket + '\n';
-                });
-            }
-
-            txt += '\n============================================================\n';
-            txt += 'Bu dosya Web Speech API ile otomatik oluşturulmuştur.\n';
-            txt += 'Doğruluk kontrolü yapılması önerilir.\n';
-            txt += 'Oluşturma: ' + new Date().toLocaleString('tr-TR') + '\n';
-            txt += '============================================================\n';
-
-            return txt;
-        }
-
-        // =============================================
-        // CANLI DEŞİFRE SİSTEMİ (Web Speech API)
-        // =============================================
-
-        function initTranscriptData() {
-            const participantName = document.getElementById('participant-name').value || 'katilimci';
-            const focusGroup = document.getElementById('focus-group').value || 'G0';
-            const interviewDate = document.getElementById('interview-date').value || new Date().toISOString().slice(0, 10);
-
-            transcriptData = {
-                meta: {
-                    form: 'derinlemesine_gorusme',
-                    katilimci: participantName,
-                    gorusmeci: document.getElementById('interviewer-name').value || '',
-                    odak_grup: focusGroup,
-                    tarih: interviewDate,
-                    saat: document.getElementById('interview-time').value || '',
-                    baslangic_zamani: new Date().toISOString(),
-                    sure_saniye: 0,
-                    ses_dosyasi: `Derinlemesine_${focusGroup}_${participantName}_${interviewDate}.wav`,
-                    dil: 'tr-TR',
-                    tarayici: navigator.userAgent.match(/Chrome|Firefox|Safari|Edge/)?.[0] || 'Bilinmiyor',
-                    sistem_sesi: document.getElementById('systemAudioCheckbox').checked
-                },
-                transkript: [],
-                markerlar: [],
-                sorular: []
-            };
-            transcriptSegmentId = 0;
-        }
-
-        // =============================================
-        // CANLI DEŞİFRE SİSTEMİ (Web Speech API)
-        // =============================================
-
-        function startSpeechRecognition() {
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            if (!SpeechRecognition) {
-                console.warn('Web Speech API desteklenmiyor');
-                document.getElementById('transcriptStatus').textContent = 'Tarayıcı desteklemiyor';
-                return;
-            }
-
-            speechRecognition = new SpeechRecognition();
-            speechRecognition.lang = 'tr-TR';
-            speechRecognition.continuous = true;
-            speechRecognition.interimResults = true;
-            speechRecognition.maxAlternatives = 1;
-
-            let interimDiv = null;
-
-            speechRecognition.onstart = () => {
-                console.log('Konuşma tanıma başladı (mikrofon)');
-                document.getElementById('transcriptDot').classList.add('listening');
-                document.getElementById('transcriptStatus').textContent = 'Dinliyor...';
-            };
-
-            speechRecognition.onresult = (event) => {
-                const currentTime = document.getElementById('recordingTimer').textContent;
-                const elapsed = recordingStartTime ? (Date.now() - recordingStartTime) / 1000 : 0;
-
-                for (let i = event.resultIndex; i < event.results.length; i++) {
-                    const result = event.results[i];
-                    const text = result[0].transcript.trim();
-                    const rawConf = result[0].confidence;
-                    const confidence = (rawConf === 0 && result.isFinal) ? 0.85 : rawConf;
-
-                    if (result.isFinal) {
-                        if (text.length > 0) {
-                            transcriptSegmentId++;
-                            const segment = {
-                                id: transcriptSegmentId,
-                                baslangic: parseFloat(elapsed.toFixed(1)),
-                                zaman: currentTime,
-                                metin: text,
-                                guven: parseFloat(confidence.toFixed(2)),
-                                soru_no: currentActiveQuestion,
-                                final: true
-                            };
-                            transcriptData.transkript.push(segment);
-                            addTranscriptLine(currentTime, text, confidence, true);
-                        }
-                        if (interimDiv) {
-                            interimDiv.remove();
-                            interimDiv = null;
-                        }
-                    } else {
-                        if (!interimDiv) {
-                            interimDiv = document.createElement('div');
-                            interimDiv.className = 'transcript-line';
-                            document.getElementById('transcriptBody').appendChild(interimDiv);
-                        }
-                        interimDiv.innerHTML = `<span class="tl-time">${currentTime}</span><span class="tl-interim">${text}...</span>`;
-                        scrollTranscript();
-                    }
-                }
-            };
-
-            speechRecognition.onerror = (event) => {
-                console.warn('Konuşma tanıma hatası:', event.error);
-                if (event.error === 'no-speech') {
-                    document.getElementById('transcriptStatus').textContent = 'Ses algılanmıyor...';
-                } else if (event.error === 'network') {
-                    document.getElementById('transcriptStatus').textContent = 'İnternet bağlantısı gerekli';
-                }
-            };
-
-            speechRecognition.onend = () => {
-                if (isRecording && speechRecognition) {
-                    setTimeout(() => {
-                        if (isRecording && speechRecognition) {
-                            try { speechRecognition.start(); } catch (e) {
-                                console.warn('Deşifre yeniden başlatılamadı:', e.message);
-                            }
-                        }
-                    }, 1000);
-                } else {
-                    document.getElementById('transcriptDot').classList.remove('listening');
-                    document.getElementById('transcriptStatus').textContent = 'Deşifre durduruldu';
-                }
-            };
-
-            try {
-                speechRecognition.start();
-                console.log('SpeechRecognition başlatıldı (mikrofon)');
-            } catch (e) {
-                console.warn('SpeechRecognition başlatılamadı:', e.message);
-            }
-        }
-
-        function stopSpeechRecognition() {
-            if (speechRecognition) {
-                try {
-                    speechRecognition.stop();
-                } catch (e) {}
-                speechRecognition = null;
-            }
-            document.getElementById('transcriptDot').classList.remove('listening');
-            document.getElementById('transcriptStatus').textContent = 'Deşifre tamamlandı';
-        }
-
-        function addTranscriptLine(time, text, confidence, isFinal) {
-            const body = document.getElementById('transcriptBody');
-            // İlk satırda placeholder varsa temizle
-            if (body.children.length === 1 && body.children[0].style.fontStyle === 'italic') {
-                body.innerHTML = '';
-            }
-
-            const line = document.createElement('div');
-            line.className = 'transcript-line';
-            const confPercent = Math.round(confidence * 100);
-            const confColor = confPercent >= 80 ? '#2ecc71' : confPercent >= 50 ? '#f39c12' : '#e74c3c';
-            line.innerHTML = `<span class="tl-time">${time}</span><span class="tl-text">${text}</span><span class="tl-confidence" style="color:${confColor};">${confPercent}%</span>`;
-            body.appendChild(line);
-            scrollTranscript();
-        }
-
-        function scrollTranscript() {
-            const body = document.getElementById('transcriptBody');
-            body.scrollTop = body.scrollHeight;
-        }
-
-        function toggleTranscriptPanel() {
-            const panel = document.getElementById('transcriptPanel');
-            const body = document.getElementById('transcriptBody');
-            transcriptPanelMinimized = !transcriptPanelMinimized;
-            body.style.display = transcriptPanelMinimized ? 'none' : 'block';
-        }
-
-        // Aktif soruyu takip et (marker eklenince güncellenir)
-        function updateActiveQuestion(questionNum) {
-            currentActiveQuestion = questionNum;
-        }
-
-        function downloadTranscriptJSON() {
-            if (transcriptData.transkript.length === 0) return;
-
-            const m = transcriptData.meta;
-            const jsonStr = JSON.stringify(transcriptData, null, 2);
-            const blob = new Blob([jsonStr], { type: 'application/json;charset=utf-8' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            const katilimci = m.katilimci || 'katilimci';
-            const tarih = m.tarih || new Date().toISOString().slice(0, 10);
-            a.download = `Desifre_${katilimci.replace(/\s+/g, '_')}_${tarih}.json`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            console.log('Deşifre JSON indirildi');
-        }
-
-        // Okunabilir TXT deşifre dosyası indir
-        function downloadTranscriptTXT() {
-            if (transcriptData.transkript.length === 0) return;
-
-            const txt = generateTXTContent();
-            const m = transcriptData.meta;
-
-            const blob = new Blob([txt], { type: 'text/plain;charset=utf-8' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            const katilimci = m.katilimci || 'katilimci';
-            const tarih = m.tarih || new Date().toISOString().slice(0, 10);
-            a.download = `Desifre_${katilimci.replace(/\s+/g, '_')}_${tarih}.txt`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            console.log('Deşifre TXT indirildi');
-        }
-
-        function formatDuration(seconds) {
-            const h = Math.floor(seconds / 3600);
-            const m = Math.floor((seconds % 3600) / 60);
-            const s = seconds % 60;
-            if (h > 0) return h + ' saat ' + m + ' dk ' + s + ' sn';
-            if (m > 0) return m + ' dk ' + s + ' sn';
-            return s + ' sn';
-        }
-
-        // =============================================
-
-        function startTimer() {
-            timerInterval = setInterval(() => {
-                const elapsed = Date.now() - recordingStartTime;
-                const hours = Math.floor(elapsed / 3600000);
-                const minutes = Math.floor((elapsed % 3600000) / 60000);
-                const seconds = Math.floor((elapsed % 60000) / 1000);
-                const timeStr = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-
-                // Her iki timer'ı da güncelle
-                document.getElementById('recordingTimer').textContent = timeStr;
-                document.getElementById('floatingTimer').textContent = timeStr;
-            }, 1000);
-        }
-
-        function stopTimer() {
-            clearInterval(timerInterval);
-        }
-
-        function updateRecordingsList() {
-            const container = document.getElementById('recordingsContainer');
-            const list = document.getElementById('recordingsList');
-
-            // Önce container'ı temizle
-            container.innerHTML = '';
-
-            if (recordings.length > 0) {
-                list.style.display = 'block';
-
-                recordings.forEach((rec, index) => {
-                    // Her kayıt için div oluştur
-                    const recordingDiv = document.createElement('div');
-                    recordingDiv.className = 'recording-item';
-
-                    // Header
-                    const header = document.createElement('div');
-                    header.className = 'recording-item-header';
-                    header.innerHTML = `
-                        <span class="recording-item-name">${rec.name}</span>
-                        <div>
-                            <span style="opacity: 0.7; font-size: 11px;">${rec.duration} | ${rec.size}</span>
-                        </div>
-                    `;
-                    recordingDiv.appendChild(header);
-
-                    // Butonlar satırı
-                    const buttonsRow = document.createElement('div');
-                    buttonsRow.style.cssText = 'display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap;';
-                    buttonsRow.innerHTML = `
-                        <button onclick="downloadRecording(${index})" style="flex: 1; background: #3498db; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer;">📥 WAV İndir</button>
-                        <button onclick="deleteRecording(${index})" style="background: #ffcccc; color: #c0392b; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer;">🗑️</button>
-                    `;
-                    recordingDiv.appendChild(buttonsRow);
-
-                    // Kayıt bilgisi
-                    const infoDiv = document.createElement('div');
-                    infoDiv.style.cssText = 'font-size: 11px; color: #666; margin-top: 5px;';
-                    infoDiv.textContent = 'Boyut: ' + rec.size + ' | Format: ' + (rec.mimeType || 'audio/webm');
-                    recordingDiv.appendChild(infoDiv);
-
-                    // Audio elementi ayrı oluştur (blob URL için daha güvenilir)
-                    const audio = document.createElement('audio');
-                    audio.controls = true;
-                    audio.preload = 'auto';
-                    audio.style.width = '100%';
-                    audio.style.marginTop = '8px';
-
-                    // Blob'dan yeni URL oluştur
-                    const audioUrl = URL.createObjectURL(rec.blob);
-                    audio.src = audioUrl;
-
-                    // Hata durumunda bildir
-                    audio.onerror = function() {
-                        console.error('Audio yükleme hatası:', audio.error);
-                        alert('Ses dosyası yüklenemedi. Lütfen indirip dinleyin.');
-                    };
-
-                    // Yüklendiğinde log
-                    audio.onloadeddata = function() {
-                        console.log('Audio yüklendi:', rec.name);
-                    };
-
-                    recordingDiv.appendChild(audio);
-                    container.appendChild(recordingDiv);
-                });
-            } else {
-                list.style.display = 'none';
-            }
-        }
-
-        function deleteRecording(index) {
-            if (confirm('Bu kaydı silmek istediğinize emin misiniz?')) {
-                recordings.splice(index, 1);
-                updateRecordingsList();
-            }
-        }
-
-        // WAV dosyasına marker gömerek indir (kütüphanesiz, manuel)
-        async function downloadWithEmbeddedMarkers(index) {
-            const rec = recordings[index];
-
-            if (!hasAnyTimestamps()) {
-                alert('Henüz zaman damgası eklenmemiş. Önce "+ Zaman" butonlarını kullanın.');
-                return;
-            }
-
-            const statusBtn = event.target;
-            const originalText = statusBtn.textContent;
-            statusBtn.textContent = 'İşleniyor...';
-            statusBtn.disabled = true;
-
-            try {
-                // 1. Audio blob'u AudioBuffer'a çevir
-                const arrayBuffer = await rec.blob.arrayBuffer();
-                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-
-                // 2. Cue point listesi oluştur
-                const cuePoints = [];
-                const questionLabels = [
-                    'Soru01_Tanisma', 'Soru02_Tanim', 'Soru03_Tercih', 'Soru04_Kesif',
-                    'Soru05_Mekan', 'Soru06_Sosyal', 'Soru07_Altyazi', 'Soru08_Sinif',
-                    'Soru09_Maddi', 'Soru10_TurkSinema', 'Soru11_Senaryo', 'Soru12_Oneri',
-                    'Soru13_Pandemi', 'Soru14_Gelecek', 'Soru15_Ek', 'Soru16_Favori'
-                ];
-
-                for (let i = 1; i <= 38; i++) {
-                    const key = 'q' + i;
-                    if (timestamps[key] && timestamps[key].length > 0) {
-                        timestamps[key].forEach((time, idx) => {
-                            const samplePos = Math.floor(timeToSeconds(time) * audioBuffer.sampleRate);
-                            const label = questionLabels[i-1] + (timestamps[key].length > 1 ? '_' + (idx+1) : '');
-                            cuePoints.push({ position: samplePos, label: label });
-                        });
-                    }
-                }
-
-                if (timestamps['general'] && timestamps['general'].length > 0) {
-                    timestamps['general'].forEach((ts, idx) => {
-                        const samplePos = Math.floor(timeToSeconds(ts.time) * audioBuffer.sampleRate);
-                        cuePoints.push({ position: samplePos, label: ts.note || 'Marker_' + (idx+1) });
-                    });
-                }
-
-                // Pozisyona göre sırala
-                cuePoints.sort((a, b) => a.position - b.position);
-
-                // 3. WAV dosyası oluştur (cue chunk ile)
-                const wavData = audioBufferToWavWithCues(audioBuffer, cuePoints);
-
-                // 4. İndir
-                const wavBlob = new Blob([wavData], { type: 'audio/wav' });
-                const url = URL.createObjectURL(wavBlob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = rec.name.replace(/\.(webm|ogg)$/, '_MARKERS.wav');
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-
-                console.log('WAV dosyası ' + cuePoints.length + ' marker ile indirildi.');
-
-            } catch (error) {
-                console.error('Marker gömme hatası:', error);
-                console.error('Marker gömme hatası:', error.message);
-            } finally {
-                statusBtn.textContent = originalText;
-                statusBtn.disabled = false;
-            }
-        }
-
-        // Zaman string'ini milisaniyeye çevir (00:05:23 -> 323000)
-        function timeToMilliseconds(timeStr) {
-            const parts = timeStr.split(':');
-            if (parts.length === 3) {
-                return (parseInt(parts[0]) * 3600 + parseInt(parts[1]) * 60 + parseInt(parts[2])) * 1000;
-            } else if (parts.length === 2) {
-                return (parseInt(parts[0]) * 60 + parseInt(parts[1])) * 1000;
-            }
-            return 0;
-        }
-
-        // AudioBuffer'ı WAV formatına çevir (cue point'lerle birlikte)
-        function audioBufferToWavWithCues(buffer, cuePoints) {
-            const numChannels = buffer.numberOfChannels;
-            const sampleRate = buffer.sampleRate;
-            const bitDepth = 16;
-            const bytesPerSample = bitDepth / 8;
-            const blockAlign = numChannels * bytesPerSample;
-            const dataSize = buffer.length * blockAlign;
-
-            // Cue chunk boyutunu hesapla
-            const numCues = cuePoints.length;
-            const cueChunkSize = 4 + (numCues * 24); // 4 byte cue count + 24 bytes per cue point
-
-            // LIST/adtl chunk boyutunu hesapla (label'lar için)
-            let listChunkSize = 4; // 'adtl'
-            cuePoints.forEach((cue, idx) => {
-                const labelBytes = new TextEncoder().encode(cue.label);
-                // labl sub-chunk: 4 (labl) + 4 (size) + 4 (cue ID) + label + padding
-                const labelChunkSize = 4 + labelBytes.length + (labelBytes.length % 2); // pad to even
-                listChunkSize += 8 + labelChunkSize;
-            });
-
-            // Toplam dosya boyutu
-            const headerSize = 44;
-            const cueChunkTotalSize = 8 + cueChunkSize; // 'cue ' + size + data
-            const listChunkTotalSize = 8 + listChunkSize; // 'LIST' + size + data
-            const totalSize = headerSize + dataSize + cueChunkTotalSize + listChunkTotalSize;
-
-            const arrayBuffer = new ArrayBuffer(totalSize);
-            const view = new DataView(arrayBuffer);
-            let offset = 0;
-
-            // Helper fonksiyonlar
-            const writeString = (str) => {
-                for (let i = 0; i < str.length; i++) {
-                    view.setUint8(offset++, str.charCodeAt(i));
-                }
-            };
-            const writeUint32 = (val) => { view.setUint32(offset, val, true); offset += 4; };
-            const writeUint16 = (val) => { view.setUint16(offset, val, true); offset += 2; };
-            const writeInt16 = (val) => { view.setInt16(offset, val, true); offset += 2; };
-
-            // RIFF header
-            writeString('RIFF');
-            writeUint32(totalSize - 8);
-            writeString('WAVE');
-
-            // fmt chunk
-            writeString('fmt ');
-            writeUint32(16);
-            writeUint16(1); // PCM
-            writeUint16(numChannels);
-            writeUint32(sampleRate);
-            writeUint32(sampleRate * blockAlign);
-            writeUint16(blockAlign);
-            writeUint16(bitDepth);
-
-            // data chunk
-            writeString('data');
-            writeUint32(dataSize);
-
-            // Audio verisi
-            const channels = [];
-            for (let i = 0; i < numChannels; i++) {
-                channels.push(buffer.getChannelData(i));
-            }
-            for (let i = 0; i < buffer.length; i++) {
-                for (let ch = 0; ch < numChannels; ch++) {
-                    let sample = Math.max(-1, Math.min(1, channels[ch][i]));
-                    sample = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
-                    writeInt16(sample);
-                }
-            }
-
-            // cue chunk
-            writeString('cue ');
-            writeUint32(cueChunkSize);
-            writeUint32(numCues);
-
-            cuePoints.forEach((cue, idx) => {
-                writeUint32(idx + 1);      // cue point ID
-                writeUint32(cue.position); // play order position
-                writeString('data');       // data chunk ID
-                writeUint32(0);            // chunk start
-                writeUint32(0);            // block start
-                writeUint32(cue.position); // sample offset
-            });
-
-            // LIST chunk (labels için)
-            writeString('LIST');
-            writeUint32(listChunkSize);
-            writeString('adtl');
-
-            cuePoints.forEach((cue, idx) => {
-                const labelBytes = new TextEncoder().encode(cue.label);
-                const paddedLength = labelBytes.length + (labelBytes.length % 2);
-
-                writeString('labl');
-                writeUint32(4 + paddedLength); // size: cue ID + label + padding
-                writeUint32(idx + 1);          // cue point ID
-
-                for (let i = 0; i < labelBytes.length; i++) {
-                    view.setUint8(offset++, labelBytes[i]);
-                }
-                // Padding (null terminator + even alignment)
-                if (labelBytes.length % 2 === 0) {
-                    view.setUint8(offset++, 0);
-                    view.setUint8(offset++, 0);
-                } else {
-                    view.setUint8(offset++, 0);
-                }
-            });
-
-            return arrayBuffer;
-        }
-
-        // Float32 PCM verisinden doğrudan WAV oluştur (cue point'lerle birlikte)
-        // WebM decode'a ihtiyaç duymaz - en güvenilir yöntem
-        function pcmToWavWithCues(pcmData, sampleRate, cuePoints) {
-            const numChannels = 1;
-            const bitDepth = 16;
-            const bytesPerSample = bitDepth / 8;
-            const blockAlign = numChannels * bytesPerSample;
-            const numSamples = pcmData.length;
-            const dataSize = numSamples * blockAlign;
-
-            // Cue chunk boyutu hesapla
-            let cueChunkTotalSize = 0;
-            let listChunkTotalSize = 0;
-
-            if (cuePoints && cuePoints.length > 0) {
-                const numCues = cuePoints.length;
-                const cueChunkSize = 4 + (numCues * 24);
-                cueChunkTotalSize = 8 + cueChunkSize;
-
-                let listChunkSize = 4; // 'adtl'
-                cuePoints.forEach(cue => {
-                    const labelBytes = new TextEncoder().encode(cue.label || '');
-                    const paddedLength = labelBytes.length + (labelBytes.length % 2 === 0 ? 2 : 1);
-                    listChunkSize += 8 + 4 + paddedLength;
-                });
-                listChunkTotalSize = 8 + listChunkSize;
-            }
-
-            const headerSize = 44;
-            const totalSize = headerSize + dataSize + cueChunkTotalSize + listChunkTotalSize;
-
-            console.log('WAV oluşturuluyor (doğrudan PCM):', {
-                sampleRate: sampleRate,
-                numSamples: numSamples,
-                duration: (numSamples / sampleRate).toFixed(1) + 's',
-                cuePoints: cuePoints ? cuePoints.length : 0,
-                fileSize: (totalSize / 1024 / 1024).toFixed(1) + ' MB'
-            });
-
-            const arrayBuffer = new ArrayBuffer(totalSize);
-            const view = new DataView(arrayBuffer);
-            let offset = 0;
-
-            const writeString = (str) => {
-                for (let i = 0; i < str.length; i++) {
-                    view.setUint8(offset++, str.charCodeAt(i));
-                }
-            };
-            const writeUint32 = (val) => { view.setUint32(offset, val, true); offset += 4; };
-            const writeUint16 = (val) => { view.setUint16(offset, val, true); offset += 2; };
-
-            // RIFF header
-            writeString('RIFF');
-            writeUint32(totalSize - 8);
-            writeString('WAVE');
-
-            // fmt chunk
-            writeString('fmt ');
-            writeUint32(16);
-            writeUint16(1); // PCM
-            writeUint16(numChannels);
-            writeUint32(sampleRate);
-            writeUint32(sampleRate * blockAlign);
-            writeUint16(blockAlign);
-            writeUint16(bitDepth);
-
-            // data chunk
-            writeString('data');
-            writeUint32(dataSize);
-
-            // Audio verisi yaz
-            for (let i = 0; i < numSamples; i++) {
-                let sample = Math.max(-1, Math.min(1, pcmData[i]));
-                sample = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
-                view.setInt16(offset, sample, true);
-                offset += 2;
-            }
-
-            // Cue chunk (marker'lar)
-            if (cuePoints && cuePoints.length > 0) {
-                const numCues = cuePoints.length;
-                const cueChunkSize = 4 + (numCues * 24);
-
-                writeString('cue ');
-                writeUint32(cueChunkSize);
-                writeUint32(numCues);
-
-                cuePoints.forEach((cue, idx) => {
-                    writeUint32(idx + 1);      // cue point ID
-                    writeUint32(cue.position); // play order position
-                    writeString('data');       // data chunk ID
-                    writeUint32(0);            // chunk start
-                    writeUint32(0);            // block start
-                    writeUint32(cue.position); // sample offset
-                });
-
-                // LIST chunk (label'lar - Audacity bu bölümü okur)
-                let listChunkSize = 4;
-                cuePoints.forEach(cue => {
-                    const labelBytes = new TextEncoder().encode(cue.label || '');
-                    const paddedLength = labelBytes.length + (labelBytes.length % 2 === 0 ? 2 : 1);
-                    listChunkSize += 8 + 4 + paddedLength;
-                });
-
-                writeString('LIST');
-                writeUint32(listChunkSize);
-                writeString('adtl');
-
-                cuePoints.forEach((cue, idx) => {
-                    const labelBytes = new TextEncoder().encode(cue.label || '');
-                    const paddedLength = labelBytes.length + (labelBytes.length % 2 === 0 ? 2 : 1);
-
-                    writeString('labl');
-                    writeUint32(4 + paddedLength);
-                    writeUint32(idx + 1);
-
-                    for (let i = 0; i < labelBytes.length; i++) {
-                        view.setUint8(offset++, labelBytes[i]);
-                    }
-                    // Padding (null terminator + even alignment)
-                    if (labelBytes.length % 2 === 0) {
-                        view.setUint8(offset++, 0);
-                        view.setUint8(offset++, 0);
-                    } else {
-                        view.setUint8(offset++, 0);
-                    }
-                });
-            }
-
-            return new Uint8Array(arrayBuffer);
-        }
-
-        // AudioBuffer'ı MONO WAV formatına çevir (konuşma için stereo gereksiz, boyut yarıya iner)
-        function audioBufferToWav(buffer) {
-            const sampleRate = buffer.sampleRate;
-            const numChannels = 1; // Her zaman mono çıkış
-            const format = 1; // PCM
-            const bitDepth = 16;
-
-            const bytesPerSample = bitDepth / 8;
-            const blockAlign = numChannels * bytesPerSample;
-            const byteRate = sampleRate * blockAlign;
-            const dataSize = buffer.length * blockAlign;
-            const headerSize = 44;
-            const totalSize = headerSize + dataSize;
-
-            console.log('WAV oluşturuluyor:', {
-                sampleRate: sampleRate,
-                duration: buffer.duration + 's',
-                inputChannels: buffer.numberOfChannels,
-                outputChannels: numChannels,
-                estimatedSize: (totalSize / 1024 / 1024).toFixed(1) + ' MB'
-            });
-
-            const arrayBuffer = new ArrayBuffer(totalSize);
-            const view = new DataView(arrayBuffer);
-
-            // WAV header yazma
-            const writeString = (offset, string) => {
-                for (let i = 0; i < string.length; i++) {
-                    view.setUint8(offset + i, string.charCodeAt(i));
-                }
-            };
-
-            writeString(0, 'RIFF');
-            view.setUint32(4, totalSize - 8, true);
-            writeString(8, 'WAVE');
-            writeString(12, 'fmt ');
-            view.setUint32(16, 16, true);
-            view.setUint16(20, format, true);
-            view.setUint16(22, numChannels, true);
-            view.setUint32(24, sampleRate, true);
-            view.setUint32(28, byteRate, true);
-            view.setUint16(32, blockAlign, true);
-            view.setUint16(34, bitDepth, true);
-            writeString(36, 'data');
-            view.setUint32(40, dataSize, true);
-
-            // Stereo → Mono mix-down (veya mono → mono)
-            const inputChannels = buffer.numberOfChannels;
-            const ch0 = buffer.getChannelData(0);
-            const ch1 = inputChannels > 1 ? buffer.getChannelData(1) : null;
-
-            let offset = 44;
-            for (let i = 0; i < buffer.length; i++) {
-                let sample;
-                if (ch1) {
-                    // Stereo → Mono: her iki kanalın ortalaması
-                    sample = (ch0[i] + ch1[i]) / 2;
-                } else {
-                    sample = ch0[i];
-                }
-                sample = Math.max(-1, Math.min(1, sample));
-                sample = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
-                view.setInt16(offset, sample, true);
-                offset += 2;
-            }
-
-            return arrayBuffer;
-        }
-
-        // Tüm marker'ları topla ve milisaniyeye çevir
-        function collectAllMarkers() {
-            const markers = [];
-
-            // Genel marker'lar
-            if (timestamps['general'] && timestamps['general'].length > 0) {
-                timestamps['general'].forEach((ts, idx) => {
-                    markers.push({
-                        position: timeToSeconds(ts.time) * 1000, // milisaniye
-                        label: ts.note || ('Marker_' + (idx + 1))
-                    });
-                });
-            }
-
-            // Soru bazlı marker'lar (string veya obje olabilir)
-            for (let i = 1; i <= 38; i++) {
-                const key = 'q' + i;
-                if (timestamps[key] && timestamps[key].length > 0) {
-                    timestamps[key].forEach((ts, idx) => {
-                        const timeStr = typeof ts === 'string' ? ts : ts.time;
-                        const noteStr = typeof ts === 'string' ? '' : (ts.note || '');
-                        markers.push({
-                            position: timeToSeconds(timeStr) * 1000,
-                            label: 'S' + i + '_' + (noteStr || ('Marker_' + (idx + 1)))
-                        });
-                    });
-                }
-            }
-
-            // Zamana göre sırala
-            markers.sort((a, b) => a.position - b.position);
-            return markers;
-        }
-
-        // WAV olarak indir (PCM verisinden doğrudan + Marker'ları gömer)
-        async function downloadRecording(index) {
-            const rec = recordings[index];
-            if (!rec || !rec.blob) {
-                alert('Kayıt bulunamadı. Lütfen önce bir ses kaydı yapın.');
-                return;
-            }
-
-            try {
-                const markers = collectAllMarkers();
-                let finalWavData;
-                let usedMethod = '';
-
-                if (pcmChunks.length > 0 && pcmSampleRate > 0) {
-                    // YÖNTEM 1: Doğrudan PCM verisinden WAV oluştur (en güvenilir)
-                    usedMethod = 'PCM doğrudan';
-                    console.log('=== YÖNTEM 1: PCM verisinden doğrudan WAV ===');
-                    console.log('PCM chunk sayısı:', pcmChunks.length);
-
-                    // Tüm chunk'ları birleştir
-                    const totalLength = pcmChunks.reduce((sum, chunk) => sum + chunk.length, 0);
-                    const fullPCM = new Float32Array(totalLength);
-                    let pcmOffset = 0;
-                    for (const chunk of pcmChunks) {
-                        fullPCM.set(chunk, pcmOffset);
-                        pcmOffset += chunk.length;
-                    }
-
-                    console.log('PCM birleştirildi:', {
-                        totalSamples: totalLength,
-                        duration: (totalLength / pcmSampleRate).toFixed(1) + 's',
-                        sampleRate: pcmSampleRate,
-                        estimatedWavSize: ((totalLength * 2 / 1024 / 1024) + 0.1).toFixed(1) + ' MB'
-                    });
-
-                    // Marker'ları sample pozisyonuna çevir
-                    const cuePoints = markers.map(m => ({
-                        position: Math.round((m.position / 1000) * pcmSampleRate),
-                        label: m.label
-                    }));
-
-                    finalWavData = pcmToWavWithCues(fullPCM, pcmSampleRate, cuePoints);
-
-                } else {
-                    // YÖNTEM 2: WebM → decode → WAV (fallback - PCM yoksa)
-                    usedMethod = 'WebM decode';
-                    console.log('=== YÖNTEM 2: WebM decode (PCM verisi yok) ===');
-
-                    const arrayBuffer = await rec.blob.arrayBuffer();
-                    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-
-                    console.log('Audio decode edildi:', {
-                        duration: audioBuffer.duration,
-                        sampleRate: audioBuffer.sampleRate,
-                        channels: audioBuffer.numberOfChannels
-                    });
-
-                    // Mono mix-down
-                    const ch0 = audioBuffer.getChannelData(0);
-                    const ch1 = audioBuffer.numberOfChannels > 1 ? audioBuffer.getChannelData(1) : null;
-                    const monoData = new Float32Array(audioBuffer.length);
-                    for (let i = 0; i < audioBuffer.length; i++) {
-                        monoData[i] = ch1 ? (ch0[i] + ch1[i]) / 2 : ch0[i];
-                    }
-
-                    // Marker'ları sample pozisyonuna çevir
-                    const cuePoints = markers.map(m => ({
-                        position: Math.round((m.position / 1000) * audioBuffer.sampleRate),
-                        label: m.label
-                    }));
-
-                    finalWavData = pcmToWavWithCues(monoData, audioBuffer.sampleRate, cuePoints);
-                    audioContext.close();
-                }
-
-                // WAV indir
-                const wavBlob = new Blob([finalWavData], { type: 'audio/wav' });
-                const url = URL.createObjectURL(wavBlob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = rec.name.replace(/\.(webm|ogg)$/, '.wav');
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                setTimeout(() => URL.revokeObjectURL(url), 100);
-
-                const markerInfo = markers.length > 0 ? ` (${markers.length} marker gömüldü)` : '';
-                console.log('WAV indirildi [' + usedMethod + ']:', rec.name.replace(/\.(webm|ogg)$/, '.wav') + markerInfo);
-
-                if (markers.length > 0) {
-                    console.log(`WAV dosyası indirildi! ${markers.length} marker gömüldü. Yöntem: ${usedMethod}`);
-                } else {
-                    console.log('WAV dosyası indirildi! Yöntem: ' + usedMethod);
-                }
-
-            } catch (err) {
-                console.error('WAV dönüşüm hatası:', err);
-                const pcmInfo = pcmChunks.length > 0 ? 'PCM: ' + pcmChunks.length + ' chunk' : 'PCM: YOK';
-                const srInfo = pcmSampleRate > 0 ? pcmSampleRate + 'Hz' : 'bilinmiyor';
-                console.error('WAV dönüşümü başarısız, orijinal WebM indiriliyor:', err.message);
-
-                // Fallback: Orijinal WebM dosyasını indir
-                const url = URL.createObjectURL(rec.blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = rec.name;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                setTimeout(() => URL.revokeObjectURL(url), 100);
-            }
-        }
-
-        function hasAnyTimestamps() {
-            for (let i = 1; i <= 38; i++) {
-                if (timestamps['q' + i] && timestamps['q' + i].length > 0) return true;
-            }
-            if (timestamps['general'] && timestamps['general'].length > 0) return true;
-            return false;
-        }
-
-        // Zaman damgasını saniyeye çevir (00:05:23 -> 323)
-        function timeToSeconds(timeStr) {
-            const parts = timeStr.split(':');
-            if (parts.length === 3) {
-                return parseInt(parts[0]) * 3600 + parseInt(parts[1]) * 60 + parseInt(parts[2]);
-            } else if (parts.length === 2) {
-                return parseInt(parts[0]) * 60 + parseInt(parts[1]);
-            }
-            return 0;
-        }
-
-        // Basit marker indirme (WAV dönüşümü olmadan)
-        function downloadMarkersOnly() {
-            if (!hasAnyTimestamps()) {
-                alert('Henüz zaman damgası eklenmemiş.\n\nKayıt sırasında M tuşuna basarak veya soru altındaki "+ Zaman" butonlarıyla ekleyebilirsiniz.');
-                return;
-            }
-
-            const participantName = document.getElementById('participant-name').value || 'katilimci';
-            const date = document.getElementById('interview-date').value || new Date().toISOString().slice(0, 10);
-
-            let content = '';
-
-            // Genel marker'lar (M tuşu ile eklenenler)
-            if (timestamps['general'] && timestamps['general'].length > 0) {
-                timestamps['general'].forEach((ts, idx) => {
-                    const seconds = timeToSeconds(ts.time);
-                    const label = ts.note || ('Marker_' + (idx + 1));
-                    content += seconds + '\t' + seconds + '\t' + label + '\n';
-                });
-            }
-
-            // Soru bazlı marker'lar
-            for (let i = 1; i <= 38; i++) {
-                const key = 'q' + i;
-                if (timestamps[key] && timestamps[key].length > 0) {
-                    timestamps[key].forEach((time, idx) => {
-                        const seconds = timeToSeconds(time);
-                        const label = 'Soru_' + i + (timestamps[key].length > 1 ? '_' + (idx + 1) : '');
-                        content += seconds + '\t' + seconds + '\t' + label + '\n';
-                    });
-                }
-            }
-
-            // Dosya olarak indir
-            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `DerinlemesineGorusme_${participantName}_${date}_markers.txt`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-
-            console.log('Marker dosyası indirildi.');
-        }
-
-        // Audacity Label Track formatında export
-        function downloadMarkersForAudacity(audioFileName) {
-            // Etiketler dizisi - fonksiyon içinde tanımlanmalı
-            const labelNames = [
-                'Soru01_Tanisma', 'Soru02_Tanim', 'Soru03_Tercih', 'Soru04_Kesif',
-                'Soru05_Mekan', 'Soru06_Sosyal', 'Soru07_Altyazi', 'Soru08_Sinif',
-                'Soru09_Maddi', 'Soru10_TurkSinema', 'Soru11_Senaryo', 'Soru12_Oneri',
-                'Soru13_Pandemi', 'Soru14_Gelecek', 'Soru15_Ek', 'Soru16_Favori'
-            ];
-
-            let lines = [];
-
-            // Soru zaman damgaları
-            for (let i = 1; i <= 38; i++) {
-                const key = 'q' + i;
-                if (timestamps[key] && timestamps[key].length > 0) {
-                    timestamps[key].forEach((time, idx) => {
-                        const seconds = timeToSeconds(time);
-                        // Etiket oluştur
-                        let markerLabel = labelNames[i - 1];
-                        if (timestamps[key].length > 1) {
-                            markerLabel = markerLabel + '_' + (idx + 1);
-                        }
-                        // Audacity format: start_time [TAB] end_time [TAB] label
-                        lines.push(seconds + '\t' + seconds + '\t' + markerLabel);
-                    });
-                }
-            }
-
-            // Genel zaman damgaları
-            if (timestamps['general'] && timestamps['general'].length > 0) {
-                timestamps['general'].forEach((ts, idx) => {
-                    const seconds = timeToSeconds(ts.time);
-                    const markerLabel = ts.note ? ts.note.replace(/\s+/g, '_') : ('Genel_' + (idx + 1));
-                    lines.push(seconds + '\t' + seconds + '\t' + markerLabel);
-                });
-            }
-
-            if (lines.length > 0) {
-                // Zamana göre sırala
-                lines.sort((a, b) => {
-                    const timeA = parseFloat(a.split('\t')[0]);
-                    const timeB = parseFloat(b.split('\t')[0]);
-                    return timeA - timeB;
-                });
-
-                const content = lines.join('\n');
-                const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = audioFileName.replace(/\.(webm|ogg)$/, '_labels.txt');
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-
-                console.log('Audacity labels exported:', lines);
-            } else {
-                alert('Hiç zaman damgası bulunamadı.');
-            }
-        }
-
-        // Tüm marker'ları dışa aktar
-        function exportAllMarkers(format) {
-            if (!hasAnyTimestamps()) {
-                alert('Henüz zaman damgası eklenmemiş. Sorulardaki "+ Zaman" butonlarını kullanarak ekleyebilirsiniz.');
-                return;
-            }
-
-            const participantName = document.getElementById('participant-name').value || 'katilimci';
-            const date = document.getElementById('interview-date').value || new Date().toISOString().slice(0, 10);
-            const baseName = `DerinlemesineGorusme_${participantName}_${date}`;
-
-            if (format === 'audacity') {
-                downloadMarkersForAudacity(baseName + '.webm');
-            } else if (format === 'audition') {
-                downloadMarkersForAudition(baseName + '.webm');
-            } else {
-                downloadMarkersGeneric(baseName);
-            }
-        }
-
-        // Genel okunabilir format
-        function downloadMarkersGeneric(baseName) {
-            const questionLabels = [
-                'Soru 1: Tanışma ve ilk sinema', 'Soru 2: Bağımsız film tanımı', 'Soru 3: Tercih nedenleri',
-                'Soru 4: Keşif ve erişim', 'Soru 5: Mekan tercihleri', 'Soru 6: Sosyal boyut',
-                'Soru 7: Altyazı/dublaj', 'Soru 8: Sınıf algısı', 'Soru 9: Maddi boyut',
-                'Soru 10: Türk bağımsız sineması', 'Soru 11: Senaryo', 'Soru 12: Öneriler',
-                'Soru 13: Pandemi etkisi', 'Soru 14: Sinemanın geleceği', 'Soru 15: Ek konular', 'Soru 16: Favori film'
-            ];
-
-            let content = `ZAMAN DAMGALARI - ${baseName}\n`;
-            content += `${'='.repeat(50)}\n\n`;
-
-            for (let i = 1; i <= 38; i++) {
-                const key = 'q' + i;
-                if (timestamps[key] && timestamps[key].length > 0) {
-                    content += `${questionLabels[i-1]}\n`;
-                    timestamps[key].forEach((time) => {
-                        content += `  → ${time}\n`;
-                    });
-                    content += '\n';
-                }
-            }
-
-            if (timestamps['general'] && timestamps['general'].length > 0) {
-                content += `Genel İşaretler\n`;
-                timestamps['general'].forEach((ts) => {
-                    content += `  → ${ts.time}${ts.note ? ' - ' + ts.note : ''}\n`;
-                });
-            }
-
-            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = baseName + '_zamanlar.txt';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        }
-
-        // Adobe Audition CSV formatında export
-        function downloadMarkersForAudition(audioFileName) {
-            let content = 'Name\tStart\tDuration\tTime Format\tType\tDescription\n';
-            const questionLabels = [
-                'Soru 1 - Tanisma', 'Soru 2 - Tanim', 'Soru 3 - Tercih', 'Soru 4 - Kesif',
-                'Soru 5 - Mekan', 'Soru 6 - Sosyal', 'Soru 7 - Altyazi', 'Soru 8 - Sinif',
-                'Soru 9 - Maddi', 'Soru 10 - Turk Sinemasi', 'Soru 11 - Senaryo', 'Soru 12 - Oneri',
-                'Soru 13 - Pandemi', 'Soru 14 - Gelecek', 'Soru 15 - Ek', 'Soru 16 - Favori'
-            ];
-
-            for (let i = 1; i <= 38; i++) {
-                const key = 'q' + i;
-                if (timestamps[key] && timestamps[key].length > 0) {
-                    timestamps[key].forEach((time) => {
-                        content += `${questionLabels[i-1]}\t${time}\t0:00:00\tdecimal\tCue\t\n`;
-                    });
-                }
-            }
-
-            if (timestamps['general'] && timestamps['general'].length > 0) {
-                timestamps['general'].forEach((ts) => {
-                    content += `${ts.note || 'Marker'}\t${ts.time}\t0:00:00\tdecimal\tCue\t\n`;
-                });
-            }
-
-            const blob = new Blob([content], { type: 'text/csv;charset=utf-8' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = audioFileName.replace(/\.(webm|ogg)$/, '_markers.csv');
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        }
-
-        // Aktif audio'yu takip et (aynı anda sadece bir tane çalsın)
-        document.addEventListener('play', function(e) {
-            const audios = document.getElementsByTagName('audio');
-            for (let i = 0; i < audios.length; i++) {
-                if (audios[i] !== e.target) {
-                    audios[i].pause();
-                }
-            }
-        }, true);
-
-        // ZAMAN DAMGASI FONKSİYONLARI
-        function addTimestamp(questionNum) {
-            const currentTime = document.getElementById('recordingTimer').textContent;
-            const key = 'q' + questionNum;
-            timestamps[key].push(currentTime);
-
-            const container = document.getElementById('timestamps-' + key);
-            container.innerHTML = timestamps[key].map(t => `<span>${t}</span>`).join('');
-
-            // Görsel geri bildirim - yeni eklenen span'ı vurgula
-            const newSpan = container.lastElementChild;
-            if (newSpan) {
-                newSpan.style.background = '#27ae60';
-                newSpan.style.color = 'white';
-                newSpan.style.borderColor = '#27ae60';
-                setTimeout(() => {
-                    newSpan.style.background = '#f5eef8';
-                    newSpan.style.color = '#8e44ad';
-                    newSpan.style.borderColor = '#d8bfe8';
-                }, 1500);
-            }
-
-            console.log(`Soru ${questionNum} için zaman damgası eklendi: ${currentTime}`);
-
-            // Aktif soruyu güncelle (deşifre için)
-            updateActiveQuestion(questionNum);
-        }
-
-        function addManualTimestamp() {
-            const currentTime = document.getElementById('recordingTimer').textContent;
-            timestamps['general'].push({
-                time: currentTime,
-                note: prompt('Bu zaman damgası için not (opsiyonel):') || ''
-            });
-            alert(`Zaman damgası eklendi: ${currentTime}`);
-        }
-
-        // JSON DIŞA AKTARMA
-        function exportJSON() {
-            const formData = collectFormData();
-            formData.timestamps = timestamps;
-            formData.zoomRecordingInfo = document.getElementById('zoom-recording-info').value;
-            formData.exportDate = new Date().toISOString();
-
-            const blob = new Blob([JSON.stringify(formData, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            const participantName = formData.participantName || 'katilimci';
-            a.download = `DerinlemesineGorusme_${participantName.replace(/\s+/g, '_')}_${formData.interviewDate || 'tarihsiz'}.json`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        }
-
-        function collectFormData() {
-            const formData = {
-                grup: 'Derinlemesine Görüşme',
-                interviewerName: document.getElementById('interviewer-name').value,
-                participantName: document.getElementById('participant-name').value,
-                focusGroup: document.getElementById('focus-group').value,
-                interviewDate: document.getElementById('interview-date').value,
-                interviewTime: document.getElementById('interview-time').value,
-                interviewStatus: document.getElementById('interview-status').value,
-                interviewType: document.getElementById('interview-type').value,
-                generalNotes: document.getElementById('general-notes').value,
-                notes: {},
-                timestamps: {}
-            };
-
-            for (let i = 1; i <= 38; i++) {
-                const noteEl = document.getElementById('note-q' + i);
-                if (noteEl) {
-                    formData.notes['q' + i] = noteEl.value;
-                    formData.timestamps['q' + i] = timestamps['q' + i] || [];
-                }
-            }
-
-            const checkboxes = document.querySelectorAll('.checklist input[type="checkbox"]');
-            formData.checklistStates = [];
-            checkboxes.forEach((cb, index) => {
-                formData.checklistStates[index] = cb.checked;
-            });
-
-            return formData;
-        }
 
         // Form verilerini localStorage'a kaydet
         function saveForm() {
@@ -3720,13 +1612,8 @@
                 participantName: document.getElementById('participant-name').value,
                 focusGroup: document.getElementById('focus-group').value,
                 interviewDate: document.getElementById('interview-date').value,
-                interviewTime: document.getElementById('interview-time').value,
-                interviewStatus: document.getElementById('interview-status').value,
-                interviewType: document.getElementById('interview-type').value,
                 generalNotes: document.getElementById('general-notes').value,
-                zoomRecordingInfo: document.getElementById('zoom-recording-info').value,
-                notes: {},
-                timestamps: timestamps
+                notes: {}
             };
 
             // Tüm soru notlarını kaydet
@@ -3768,11 +1655,7 @@
             document.getElementById('participant-name').value = formData.participantName || '';
             document.getElementById('focus-group').value = formData.focusGroup || 'G1';
             document.getElementById('interview-date').value = formData.interviewDate || '';
-            document.getElementById('interview-time').value = formData.interviewTime || '';
-            document.getElementById('interview-status').value = formData.interviewStatus || 'basladi';
-            document.getElementById('interview-type').value = formData.interviewType || 'online';
             document.getElementById('general-notes').value = formData.generalNotes || '';
-            document.getElementById('zoom-recording-info').value = formData.zoomRecordingInfo || '';
 
             // Notları yükle
             if (formData.notes) {
@@ -3780,18 +1663,6 @@
                     const noteEl = document.getElementById('note-q' + i);
                     if (noteEl && formData.notes['q' + i]) {
                         noteEl.value = formData.notes['q' + i];
-                    }
-                }
-            }
-
-            // Zaman damgalarını yükle
-            if (formData.timestamps) {
-                timestamps = formData.timestamps;
-                // UI'ı güncelle
-                for (let i = 1; i <= 38; i++) {
-                    const container = document.getElementById('timestamps-q' + i);
-                    if (container && timestamps['q' + i]) {
-                        container.innerHTML = timestamps['q' + i].map(t => `<span>${t}</span>`).join('');
                     }
                 }
             }
@@ -3817,150 +1688,24 @@
             document.getElementById('participant-name').value = '';
             document.getElementById('focus-group').value = 'G1';
             document.getElementById('interview-date').value = '';
-            document.getElementById('interview-time').value = '';
-            document.getElementById('interview-status').value = 'basladi';
-            document.getElementById('interview-type').value = 'online';
             document.getElementById('general-notes').value = '';
-            document.getElementById('zoom-recording-info').value = '';
 
             for (let i = 1; i <= 38; i++) {
                 const noteEl = document.getElementById('note-q' + i);
                 if (noteEl) noteEl.value = '';
-
-                // Zaman damgalarını temizle
-                const tsContainer = document.getElementById('timestamps-q' + i);
-                if (tsContainer) tsContainer.innerHTML = '';
-                timestamps['q' + i] = [];
             }
-            timestamps['general'] = [];
 
             const checkboxes = document.querySelectorAll('.checklist input[type="checkbox"]');
             checkboxes.forEach(cb => cb.checked = false);
 
-            // Kayıtları temizle
-            recordings = [];
-            document.getElementById('recordingsContainer').innerHTML = '';
-            document.getElementById('recordingsList').style.display = 'none';
+            // Dosya seçimini temizle
+            selectedZoomFile = null;
+            const fileInfo = document.getElementById('selectedFileInfo');
+            if (fileInfo) { fileInfo.style.display = 'none'; fileInfo.innerHTML = ''; }
+            const trBtn = document.getElementById('transcribeBtn');
+            if (trBtn) trBtn.style.display = 'none';
 
             updateSaveStatus(false);
-        }
-
-        // TXT olarak dışa aktar (Gelişmiş Rapor)
-        function exportForm() {
-            const interviewerName = document.getElementById('interviewer-name').value || 'Belirtilmedi';
-            const participantName = document.getElementById('participant-name').value || 'Belirtilmedi';
-            const interviewDate = document.getElementById('interview-date').value || 'Belirtilmedi';
-            const interviewTime = document.getElementById('interview-time').value || 'Belirtilmedi';
-            const interviewStatus = document.getElementById('interview-status').selectedOptions[0].text;
-            const interviewType = document.getElementById('interview-type').selectedOptions[0].text;
-            const generalNotes = document.getElementById('general-notes').value || '-';
-            const zoomInfo = document.getElementById('zoom-recording-info').value || '-';
-
-            let content = `
-╔══════════════════════════════════════════════════════════════════════════════╗
-║                    DERİNLEMESİNE GÖRÜŞME RAPORU                              ║
-║                  Sinema Seyircisi Araştırması                          ║
-╚══════════════════════════════════════════════════════════════════════════════╝
-
-┌──────────────────────────────────────────────────────────────────────────────┐
-│ GÖRÜŞME BİLGİLERİ                                                            │
-├──────────────────────────────────────────────────────────────────────────────┤
-│ Görüşmeci    : ${interviewerName.padEnd(58)}│
-│ Katılımcı    : ${participantName.padEnd(58)}│
-│ Tarih        : ${interviewDate.padEnd(58)}│
-│ Saat         : ${interviewTime.padEnd(58)}│
-│ Durum        : ${interviewStatus.padEnd(58)}│
-│ Tür          : ${interviewType.padEnd(58)}│
-│ Zoom Kaydı   : ${zoomInfo.padEnd(58)}│
-└──────────────────────────────────────────────────────────────────────────────┘
-
-┌──────────────────────────────────────────────────────────────────────────────┐
-│ GENEL NOTLAR / İZLENİMLER                                                    │
-└──────────────────────────────────────────────────────────────────────────────┘
-${generalNotes}
-
-`;
-
-            const questionTitles = [
-                'Tanışma ve ilk sinema deneyimi',
-                'Bağımsız film tanımı',
-                'Tercih nedenleri',
-                'Keşif ve erişim',
-                'Mekan tercihleri',
-                'Sosyal boyut - kiminle izliyor',
-                'Altyazı/dublaj tercihi',
-                'Sınıfsal algı',
-                'Maddi boyut',
-                'Türk bağımsız sineması',
-                'Senaryo sorusu',
-                'Öneriler',
-                'Pandemi etkisi',
-                'Sinemanın geleceği',
-                'Ek konular',
-                'Favori film'
-            ];
-
-            const sections = [
-                { name: 'BÖLÜM 1: ISINMA', questions: [1] },
-                { name: 'BÖLÜM 2: ANA SORULAR', questions: [2, 3, 4, 5, 6, 7] },
-                { name: 'BÖLÜM 3: SOSYAL SINIF ALGISI', questions: [8, 9] },
-                { name: 'BÖLÜM 4: DERİNLEŞTİRME', questions: [10, 11, 12, 13, 14] },
-                { name: 'BÖLÜM 5: KAPANIŞ', questions: [15, 16] }
-            ];
-
-            sections.forEach(section => {
-                content += `
-╔══════════════════════════════════════════════════════════════════════════════╗
-║ ${section.name.padEnd(76)}║
-╚══════════════════════════════════════════════════════════════════════════════╝
-`;
-                section.questions.forEach(i => {
-                    const noteEl = document.getElementById('note-q' + i);
-                    const noteValue = noteEl ? (noteEl.value || '(Not eklenmedi)') : '(Not eklenmedi)';
-                    const questionTimestamps = timestamps['q' + i] || [];
-                    const timestampStr = questionTimestamps.length > 0 ? `[Zaman: ${questionTimestamps.join(', ')}]` : '';
-
-                    content += `
-┌─ SORU ${i}: ${questionTitles[i-1]} ${timestampStr}
-│
-${noteValue.split('\n').map(line => '│  ' + line).join('\n')}
-│
-└──────────────────────────────────────────────────────────────────────────────
-
-`;
-                });
-            });
-
-            // Genel zaman damgaları
-            if (timestamps['general'] && timestamps['general'].length > 0) {
-                content += `
-╔══════════════════════════════════════════════════════════════════════════════╗
-║ ZAMAN DAMGALARI                                                              ║
-╚══════════════════════════════════════════════════════════════════════════════╝
-`;
-                timestamps['general'].forEach((ts, idx) => {
-                    content += `${ts.time} - ${ts.note || '(not yok)'}\n`;
-                });
-            }
-
-            content += `
-
-════════════════════════════════════════════════════════════════════════════════
-TÜBİTAK 1001 - Cumhuriyetin 100. Yılında Sinema Seyircisi Araştırması
-Rapor oluşturma tarihi: ${new Date().toLocaleString('tr-TR')}
-════════════════════════════════════════════════════════════════════════════════
-`;
-
-            // Dosyayı indir
-            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `DerinlemesineGorusme_Rapor_${participantName.replace(/\s+/g, '_')}_${interviewDate || 'tarihsiz'}.txt`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
         }
 
         // Kayıt durumunu güncelle
@@ -3989,13 +1734,8 @@ Rapor oluşturma tarihi: ${new Date().toLocaleString('tr-TR')}
                 interviewerName: document.getElementById('interviewer-name').value,
                 participantName: document.getElementById('participant-name').value,
                 interviewDate: document.getElementById('interview-date').value,
-                interviewTime: document.getElementById('interview-time').value,
-                interviewStatus: document.getElementById('interview-status').value,
-                interviewType: document.getElementById('interview-type').value,
                 generalNotes: document.getElementById('general-notes').value,
-                zoomRecordingInfo: document.getElementById('zoom-recording-info').value,
-                notes: {},
-                timestamps: timestamps
+                notes: {}
             };
 
             for (let i = 1; i <= 38; i++) {
@@ -4217,8 +1957,6 @@ Rapor oluşturma tarihi: ${new Date().toLocaleString('tr-TR')}
                     <button class="add-probe-btn" onclick="addProbe(this)" style="display: inline-block;">+ Takip Sorusu Ekle</button>
                 </div>
                 <div class="note-area">
-                    <div class="note-area-label">Notlar - Soru ${newNum} <button class="timestamp-btn" onclick="addTimestamp(${newNum})">+ Zaman</button></div>
-                    <div class="timestamps-list" id="timestamps-q${newNum}"></div>
                     <textarea id="note-q${newNum}" placeholder="Notlarınız..."></textarea>
                 </div>
             `;
@@ -4251,7 +1989,6 @@ Rapor oluşturma tarihi: ${new Date().toLocaleString('tr-TR')}
                 }
                 const noteLabel = question.querySelector('.note-area-label');
                 if (noteLabel) {
-                    noteLabel.innerHTML = `Notlar - Soru ${index + 1} <button class="timestamp-btn" onclick="addTimestamp(${index + 1})">+ Zaman</button>`;
                 }
             });
         }
